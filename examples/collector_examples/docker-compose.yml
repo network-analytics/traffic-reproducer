@@ -7,8 +7,11 @@ services:
     image: pmacct/nfacctd:bleeding-edge
     container_name: nfacctd-example
     volumes:
-      - ./nfacctd-example-ipfix.conf:/etc/pmacct/nfacctd.conf
       - ./pmacct-output:/var/log/pmacct
+      # nfacctd config file (enable only one of the following depending on the use-case)
+      #- ./nfacctd-example-ipfix.conf:/etc/pmacct/nfacctd.conf
+      #- ./nfacctd-example-ipfix+bgp.conf:/etc/pmacct/nfacctd.conf
+      - ./nfacctd-example-ipfix+bmp.conf:/etc/pmacct/nfacctd.conf
     network_mode: host
     privileged: true
     restart: unless-stopped

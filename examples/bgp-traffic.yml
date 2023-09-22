@@ -1,0 +1,30 @@
+pcap: examples/bgp-traffic.pcap
+
+time_factor: 1                            # multiplicative factor for speed (2 = twice as slow)
+keep_open: true                           # set to true to not stop application (-> keep sockets open)
+
+# TODO: - create more examples, and only include optimize features in a single example (made for e.g. stress testing..)
+
+optimize:
+  threading: false                      # assign one peer per thread -> we can process packet while sending. No order guarantee between peers
+  preload: false                        # preload pcap in memory. Faster but more ram used. Often not useful
+  network:
+    so_sndbuf: null                     # max possible: cat /proc/sys/net/core/wmem_max - send buffer - null for default
+    so_rcvbuf: null
+
+network:
+  map: 
+  - src_ip:           138.190.129.21
+    original_bgp_id:  138.190.129.21
+    repro_ip:         192.168.100.1       # can be empty string for OS default
+    bgp_id:           192.168.100.1
+    
+  interface: null                         # to use a VRF, give the vrf name
+
+bgp:
+  select: 
+    tcp:
+      dport: 179
+  collector:                              # collector that will receive the reproduced messages
+    ip: localhost 
+    port: 179 
