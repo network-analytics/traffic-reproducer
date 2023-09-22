@@ -1,0 +1,14 @@
+version: '3'
+services:
+  ####################################################
+  # Pmacct nfacctd daemon (Ipfix collector)
+  ####################################################
+  nfacctd:
+    image: pmacct/nfacctd:bleeding-edge
+    container_name: nfacctd-example
+    volumes:
+      - ./nfacctd-example-ipfix.conf:/etc/pmacct/nfacctd.conf
+      - ./pmacct-output:/var/log/pmacct
+    network_mode: host
+    privileged: true
+    restart: unless-stopped
