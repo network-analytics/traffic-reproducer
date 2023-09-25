@@ -14,8 +14,8 @@ optimize:
 
 network:
   map: 
-  - src_ip:           138.190.129.21
-    repro_ip:         192.168.100.1       # can be empty string for OS default
+  - src_ip:     138.190.129.21
+    repro_ip:   192.168.100.1             # needs to be an IP existing IP address bound to an interface on the server
     
   interface: null                         # to use a VRF, give the vrf name
 

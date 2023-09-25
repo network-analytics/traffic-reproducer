@@ -16,12 +16,10 @@ class GenericPClient:
     def __init__(
         self,
         collector,
-        client,
-        socket,
+        client
     ):
         self.proto = "unknown"
         self.collector = collector
-        self.socket = socket
         self.socket_init = False
         self.client = client
         self.receiving_thread = None
@@ -43,9 +41,11 @@ class GenericPClient:
 
     def _init_socket(self):
         self.socket_init = True
-        # socket has already a socket initialized with the right proto (UDP or TCP)
+
+        # socket has already a socket initialized by the child class with the right proto (UDP or TCP)
         s = self.socket
-        # set options
+
+        # set additional socket options
         if self.client.interface is not None:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, str(self.client.interface + '\0').encode('utf-8'))
         if self.client.so_sndbuf is not None:
@@ -53,13 +53,14 @@ class GenericPClient:
         if self.client.so_rcvbuf is not None:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self.client.so_rcvbuf)
 
+        # some logs
         logging.info(f'[{self.client.repro_ip}][{self.proto}] Opening socket with collector (simulating {self.client.src_ip})')
 
+        # bind and connect to socket
         if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv4Address:
-          s.bind((self.client.repro_ip, 0))
-        else: # IPv6
-          s.bind((self.client.repro_ip, 0, 0, 0)) # check: do we really need a 4-tuple?
-      
+            s.bind((self.client.repro_ip, 0))
+        elif type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
+            s.bind((self.client.repro_ip, 0, 0, 0)) # check: do we really need a 4-tuple?
         s.connect((self.collector['ip'], self.collector['port']))
 
         self.socket = s
@@ -67,9 +68,10 @@ class GenericPClient:
         self.receiving_thread.start()
 
     def send(self, packet, proto):
+        # open socket if it's the first packet
         if not self.socket_init:
-            # Open socket
             self._init_socket()
+
         report.pkt_proto_sent_countup(proto)
         # print(packet.hex())
         return self.socket.send(packet)
@@ -83,24 +85,27 @@ class BGPPClient(GenericPClient):
 
         super().__init__(
             collector,
-            client,
-            socket.socket(socket.AF_INET))
-        
+            client)
+
+        self.__init_socket()  # initialize TCP socket
         self.proto = Proto.bgp.value
 
-        # Overwrite socket if repro_ip is ipv6 
-        # TODO: handle this in a better way in the __init stuff above
-        if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
+    def __init_socket(self):
+        if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv4Address:
+            self.socket = socket.socket(socket.AF_INET)
+        elif type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
             self.socket = socket.socket(socket.AF_INET6)
 
     def get_payload(self, packetwm: PacketWithMetadata):
         packet = packetwm.packet
-        payload = raw(packet[TCP].payload)
-        return payload
+        bgp_payload = raw(packet[TCP].payload)
+        return bgp_payload
 
+    # TODO: Understand why do we need this 
     def send(self, packet, proto):
         r = super().send(packet, proto)
         return r
+
 
 class BMPPClient(GenericPClient):
     def __init__(
@@ -110,20 +115,21 @@ class BMPPClient(GenericPClient):
 
         super().__init__(
             collector,
-            client,
-            socket.socket(socket.AF_INET))
+            client)
 
+        self.__init_socket()  # initialize TCP socket
         self.proto = Proto.bmp.value        
 
-        # Overwrite socket if repro_ip is ipv6
-        if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
+    def __init_socket(self):
+        if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv4Address:
+            self.socket = socket.socket(socket.AF_INET)
+        elif type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
             self.socket = socket.socket(socket.AF_INET6)
 
     def get_payload(self, packetwm: PacketWithMetadata):
         packet = packetwm.packet
-        payload = raw(packet[TCP].payload)
-        return raw(packet[TCP].payload)
-
+        bmp_payload = raw(packet[TCP].payload)
+        return bmp_payload
 
 
 class IPFIXPClient(GenericPClient):
@@ -134,32 +140,18 @@ class IPFIXPClient(GenericPClient):
 
         super().__init__(
             collector,
-            client,
-            socket.socket(socket.AF_INET, socket.SOCK_DGRAM))
+            client)
 
+        self.__init_socket()  # initialize UDP socket
         self.proto = Proto.ipfix.value        
 
-        # Overwrite socket if repro_ip is ipv6
-        if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
+    def __init_socket(self):
+        if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv4Address:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        elif type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
             self.socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
 
-    # Have a look at this if we are using that or we can remove or we need to do it on the preprocessing
-    # This if it replaces export time with current time it probably makes sense to keep
-    # --> and also investigate if it might make sense to implement it for BMP and BGP
-    def _ipfix_replace_export_time(self, packetwm: PacketWithMetadata):
-        packet = packetwm.packet
-        i = packetwm.number
-        raw_pkt = raw(packet[UDP].payload)
-        pkt_time = packet.time
-        exp_time = int.from_bytes(raw_pkt[8:12], 'big', signed=False)
-        diff_time = int(pkt_time) - exp_time
-
-        curr_time = int(time())
-        replaced_time = curr_time - diff_time
-        mod_raw_pkt = raw_pkt[:8] + replaced_time.to_bytes(4, 'big') + raw_pkt[12:]
-
-        return mod_raw_pkt
-
     def get_payload(self, packetwm: PacketWithMetadata):
-        ipfix_payload = self._ipfix_replace_export_time(packetwm)
+        packet = packetwm.packet
+        ipfix_payload = raw(packet[UDP].payload)
         return ipfix_payload

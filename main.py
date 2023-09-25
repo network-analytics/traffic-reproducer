@@ -52,7 +52,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-sync',
-        help="Disable IPFIX bucket sync (start reproducing pcap right away without waiting the next full minute and without considering pcap timestamps?).",
+        help="Disable IPFIX bucket sync (start reproducing pcap right away without waiting the next full minute).",
         action="store_const",
         dest="nosync",
         const=True,
@@ -61,7 +61,7 @@ def parse_args():
 
     parser.add_argument(
         '--keep-open',
-        help="Do not close the TCP connection when finished replaying pcap [default=False]",
+        help="Do not close the TCP connection when finished replaying pcap [default=False].",
         action="store_const",
         dest="keep_open",
         const=True,
