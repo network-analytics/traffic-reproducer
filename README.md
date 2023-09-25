@@ -1,18 +1,15 @@
-# Traffic reproducer
+# Traffic Reproducer
 
-Given a PCAP and a simple configuration file, the tool can reproduce the traffic to a collector. This can be useful, for example, to debug a collector with a recording from some production routers.
-
-TODO: rewrite all readme
+Given a PCAP and a configuration file, this scapy-based tool can reproduce traffic to a collector. This can be useful, for example, to debug or test a collector with a recording from some routers.
 
 ## Features
 
-- Reproduce IPFIX, BMP and BGP
-- Simulates respecting the speed of the PCAP
+- Reproduce IPFIX/NFv9/NFv5, BMP and BGP from pcap files
+- Simulates respecting the timestamps within the PCAP
 - Simulates multiple clients via multiple configurable IPs
 - Support for VRF in linux
 - Easy integration with new protocols
-- BGP_ID replaced correctly for perfect correlation
-- Generation of a new pre-filtered PCAP for faster performance
+- [In Development] Tools for generating and processing pcap files so that they're ready to be reproduces
 
 ## Installation
 
@@ -23,65 +20,31 @@ source venv/bin/activate
 pip install -r requiremements.txt
 ```
 
-## Usage
+### Pcap file record and preprocessing
 
-First step is to record a PCAP, then to create a configuration file for the PCAP, and finally to run the program
-
-### Record PCAP
-
-You can use `tcpdump` tool in Linux to record a PCAP. The simplest command is as follows:
-
-```
-tcpdump -vvv -w one.pcap
-```
-
-This will record from a default interface any packet and will write a PCAP file into `one.pcap`. Thanks to `-vvv` you will see the number of packets captured so far
-
-A more realistic example is as follows:
-
-```
-tcpdump -vvv -i vrf300  -n host 10.0.0.1 -w ./two.pcap
-```
-
-With `-i vrf300` `tcpdump` listens only to interface named `vrf300`. With `-n host 10.0.0.1` `tcpdump` is going to filter packets coming from or going to IP 10.0.0.1.
-
-### Configuration file
-
-You can use the file `examples/config.yml` as skeleton for you configuration. For more explanation, check comments in place
+TODO: write this section 
 
 ### Run the program
 
 ```sh
 > python main.py -h
-usage: main.py [-h] -t--test TEST_PATH [-w--write WRITE] [-v] [-d] [--no-sync]
+usage: main.py [-h] -t CFG [-v] [-d] [--no-sync] [--keep-open]
 
-Reproduce BGP, BMP and IPFIX traffic from pcap with minimal changes
+Network Telemetry Traffic Reproducer: reproduce IPFIX/NetFlow, BGP and BMP Traffic based on pcap file.
 
-optional arguments:
-  -h, --help           show this help message and exit
-  -t, --test TEST_PATH Test YAML file - see test.yml.example
-  -w, --write WRITE    Output file if you want to pre-filter. No packets will be sent
-  -v, --verbose        Logging in INFO mode
-  -d, --debug          Logging in DEBUG mode
-  --no-sync            Disable initial IPFIX sync
+options:
+  -h, --help          show this help message and exit
+  -t CFG, --test CFG  Test YAML configuration file path specifying repro and collector IPs and other reproduction parameters (see examples folder).
+  -v, --verbose       Set log level to INFO [default=WARNING unless -d/--debug flag is used].
+  -d, --debug         Set log level to DEBUG [default=WARNING unless -v/--verbose flag is used].
+  --no-sync           Disable IPFIX bucket sync (start reproducing pcap right away without waiting the next full minute).
+  --keep-open         Do not close the TCP connection when finished replaying pcap [default=False].
+
+-----------------------
 ```
 
+### Time bucketing
 
 Some collectors will do aggregation at a minute bucketing (e.g. pmacct). In other words, some collectors will accumulate IPFIX data from second 0 to second 59 of each minute, and then will aggregate and send the aggregated data. As such, the position of the IPFIX in the minute is very important (please, refer to the following image to better understand the problem). That is why before sending the first IPFIX message, the reproducer will wait to sync the minute as in the PCAP. This behaviour can be disabled with `--no-sync`.
 
 ![](./docs/img/aggregation-explanation.svg)
-
-## Add a new protocol
-
-If you want to add a new protocol, you will need to change:
-
-- `proto.py`, where the supported protocols are listed
-- `proto_client.py`, where the logic for the protocol is placed. In particular, you will need to implement a new class with two methods: `should_filter` (given a packet, should return True if you want to filter the packet, or False), and `get_payload`, which would return the payload that will be sent by the socket. In the main, you should also define the socket (if UDP or TCP):
-```py
-super().__init__(
-    collector,
-    client,
-    socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-)
-```
-- `client.py`: the `__init__` method initializes the `proto_client` class

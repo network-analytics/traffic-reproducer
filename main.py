@@ -21,8 +21,8 @@ from proto import Proto
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        prog="Network Telemetry Traffic Reproducer",
-        description="Reproduce IPFIX/NetFlow, BGP and BMP Traffic based on pcap file.",
+        prog="main.py",
+        description="Network Telemetry Traffic Reproducer: reproduce IPFIX/NetFlow, BGP and BMP Traffic based on pcap file.",
         epilog="-----------------------")
 
     parser.add_argument(
@@ -30,7 +30,7 @@ def parse_args():
         type=pathlib.Path,
         dest='cfg',
         required=True,
-        help="Test YAML configuration file specifying repro and collector IPs and other reproduction parameters (see examples folder).",
+        help="Test YAML configuration file path specifying repro and collector IPs and other reproduction parameters (see examples folder).",
     )
 
     parser.add_argument(
