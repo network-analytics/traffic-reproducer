@@ -1,12 +1,12 @@
+# External Libraries
 import logging
 from time import time, sleep
 
+# Internal Libraries
 from packet_manager import PacketWithMetadata
 from report import report
 from proto import Proto
-
 from proto_client import BGPPClient, IPFIXPClient, BMPPClient
-
 
 class Client:
     def __init__(

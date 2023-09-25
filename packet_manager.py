@@ -1,9 +1,10 @@
+# External Libraries
+import logging
 from scapy.all import PcapReader, rdpcap
+
+# Internal Libraries
 from report import report
 from proto import Proto
-
-import logging
-
 
 class PacketWithMetadata:
     def __init__(self, number, packet, typ: Proto) -> None:

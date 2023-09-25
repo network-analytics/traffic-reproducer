@@ -1,11 +1,13 @@
-from scapy.all import TCP, UDP, raw
+# External Libraries
 import ipaddress
 import logging
-from time import time
 import socket
 import threading
 import select
+from time import time
+from scapy.all import TCP, UDP, raw
 
+# Internal Libraries
 from packet_manager import PacketWithMetadata
 from bgp import is_bgp_open_message
 from bmp import is_bmp_open_message

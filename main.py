@@ -1,25 +1,22 @@
-from ast import arg
-from scapy.all import IP, IPv6, TCP, UDP, raw, Raw
-
+# External Libraries
 import argparse
 import yaml
+import signal
+import sys
+import logging
+from ast import arg
 from time import time, sleep
 from prettytable import PrettyTable
 from threading import Thread
 from queue import Queue
-import signal
-import sys
-from scapy.all import PcapWriter
+from scapy.all import IP, IPv6, TCP, UDP, raw, Raw, PcapWriter
 
-
-import logging
-
+# Internal Libraries
 from filter import filter_generator
 from client import Client
 from packet_manager import PacketManager, PacketWithMetadata
 from report import report
 from proto import Proto
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Reproduce BGP, BMP and IPFIX traffic from pcap with minimal changes")

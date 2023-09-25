@@ -1,6 +1,6 @@
-from scapy.all import TCP, raw
-
+# External Libraries
 import ipaddress
+from scapy.all import TCP, raw
 
 def is_bgp_open_message(payload, original_bgp_id):
     if len(payload) <= 28:

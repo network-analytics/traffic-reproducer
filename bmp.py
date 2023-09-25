@@ -1,6 +1,7 @@
+# External Libraries
+import ipaddress
 from scapy.all import TCP, raw
 
-import ipaddress
 from bgp import is_bgp_open_message
 
 def is_bmp_open_message(payload, original_bgp_id):

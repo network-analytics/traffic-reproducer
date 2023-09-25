@@ -1,9 +1,11 @@
+# External Libraries
 import queue
+import logging
 from threading import Thread, Event
 from time import sleep, time
-import logging
 from prettytable import PrettyTable
 
+# Internal Libraries
 from proto import Proto
 
 class Report:
