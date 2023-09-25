@@ -15,9 +15,7 @@ optimize:
 network:
   map: 
   - src_ip:           138.190.129.21
-    original_bgp_id:  138.190.129.21
     repro_ip:         192.168.100.1       # can be empty string for OS default
-    bgp_id:           192.168.100.1
     
   interface: null                         # to use a VRF, give the vrf name
 

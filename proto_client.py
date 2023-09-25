@@ -9,8 +9,6 @@ from scapy.all import TCP, UDP, raw
 
 # Internal Libraries
 from packet_manager import PacketWithMetadata
-from bgp import is_bgp_open_message
-from bmp import is_bmp_open_message
 from proto import Proto
 from report import report
 
@@ -28,9 +26,6 @@ class GenericPClient:
         self.client = client
         self.receiving_thread = None
         self.should_run = True
-
-    def should_filter(self, packetwm: PacketWithMetadata):
-        raise Exception("Method not implemented")
 
     def get_payload(self, packetwm: PacketWithMetadata):
         raise Exception("Method not implemented")
@@ -68,7 +63,6 @@ class GenericPClient:
         s.connect((self.collector['ip'], self.collector['port']))
 
         self.socket = s
-
         self.receiving_thread = threading.Thread(target=self.receiver)
         self.receiving_thread.start()
 
@@ -85,93 +79,45 @@ class BGPPClient(GenericPClient):
     def __init__(
         self,
         collector,
-        client,
-        bgp_id,
-        original_bgp_id,
-    ):
+        client):
 
         super().__init__(
             collector,
             client,
-            socket.socket(socket.AF_INET)
-        )
+            socket.socket(socket.AF_INET))
         
-        # Overwrite socket if repro_ip is ipv6
-        if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
-            self.socket = socket.socket(socket.AF_INET6)
-
-        self.bgp_id = bgp_id
-        self.original_bgp_id = original_bgp_id
-        self.found_first_open_msg = False
         self.proto = Proto.bgp.value
 
-        self.is_capabilities_received = False
-
-    def _bgp_open_replace_bgpid(self, packetwm: PacketWithMetadata):
-        # this is open, we need to change the bgp id
-        packet = packetwm.packet
-        i = packetwm.number
-        pkt_raw = raw(packet[TCP].payload)
-        pcap_bgp_id = ipaddress.ip_address(int.from_bytes(pkt_raw[24:28], 'big', signed=False))
-        bgp_id_b = int(ipaddress.ip_address(self.bgp_id)).to_bytes(4, 'big', signed=False)
-        open_msg = pkt_raw[:24] + bgp_id_b + pkt_raw[28:]
-        logging.info(f"[{i}][{self.client.repro_ip}] BGP ID in open message for {self.client.repro_ip} will change from {pcap_bgp_id} to {self.bgp_id}")
-        return open_msg
-
-    def is_first_open_msg_found(self):
-        return self.found_first_open_msg
-
-    def should_filter(self, packetwm: PacketWithMetadata):
-        packet = packetwm.packet
-        i = packetwm.number
-        if not self.found_first_open_msg:
-            payload = raw(packet[TCP].payload)
-            if not is_bgp_open_message(payload, self.original_bgp_id):
-                # Not got a first open message
-                logging.debug(f"[{i}][{self.client.repro_ip}] Discarding packet as no BGP Open yet")
-                report.pkt_proto_filtered_countup(self.proto)
-                return True
-            # First open message!
-            logging.info(f"[{i}][{self.client.repro_ip}] First BGP Open found")
-            self.found_first_open_msg = True
-        return False
+        # Overwrite socket if repro_ip is ipv6 
+        # TODO: handle this in a better way in the __init stuff above
+        if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
+            self.socket = socket.socket(socket.AF_INET6)
 
     def get_payload(self, packetwm: PacketWithMetadata):
         packet = packetwm.packet
         payload = raw(packet[TCP].payload)
-        if is_bgp_open_message(payload, self.original_bgp_id):
-            return self._bgp_open_replace_bgpid(packetwm)
         return payload
 
     def send(self, packet, proto):
         r = super().send(packet, proto)
-
-        # if not self.is_capabilities_received:
-        #     self.is_capabilities_received = True
-        #     data = self.socket.recv(4000)
-        #     logging.info(f"Received {len(data)} bytes")
-
         return r
 
 class BMPPClient(GenericPClient):
     def __init__(
         self,
         collector,
-        client,
-    ):
+        client):
+
         super().__init__(
             collector,
             client,
-            socket.socket(socket.AF_INET)
-        )
-        
+            socket.socket(socket.AF_INET))
+
+        self.proto = Proto.bmp.value        
+
         # Overwrite socket if repro_ip is ipv6
         if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
             self.socket = socket.socket(socket.AF_INET6)
-        self.proto = Proto.bmp.value
-
-    def should_filter(self, packetwm: PacketWithMetadata):
-        return False
 
     def get_payload(self, packetwm: PacketWithMetadata):
         packet = packetwm.packet
@@ -184,21 +130,22 @@ class IPFIXPClient(GenericPClient):
     def __init__(
         self,
         collector,
-        client,
-    ):
+        client):
+
         super().__init__(
             collector,
             client,
-            socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        )
-        
+            socket.socket(socket.AF_INET, socket.SOCK_DGRAM))
+
+        self.proto = Proto.ipfix.value        
+
         # Overwrite socket if repro_ip is ipv6
         if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
             self.socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
 
-  
-        self.proto = Proto.ipfix.value
-
+    # Have a look at this if we are using that or we can remove or we need to do it on the preprocessing
+    # This if it replaces export time with current time it probably makes sense to keep
+    # --> and also investigate if it might make sense to implement it for BMP and BGP
     def _ipfix_replace_export_time(self, packetwm: PacketWithMetadata):
         packet = packetwm.packet
         i = packetwm.number
@@ -212,14 +159,6 @@ class IPFIXPClient(GenericPClient):
         mod_raw_pkt = raw_pkt[:8] + replaced_time.to_bytes(4, 'big') + raw_pkt[12:]
 
         return mod_raw_pkt
-
-    def should_filter(self, packetwm: PacketWithMetadata):
-        pclients = self.client.pclients
-        if (Proto.bgp.value in pclients and not pclients[Proto.bgp.value].is_first_open_msg_found()):
-            logging.debug(f"[{packetwm.number}][{self.client.repro_ip}] First BGP OPEN for peer not found")
-            report.pkt_proto_filtered_countup(self.proto)
-            return True
-        return False
 
     def get_payload(self, packetwm: PacketWithMetadata):
         ipfix_payload = self._ipfix_replace_export_time(packetwm)

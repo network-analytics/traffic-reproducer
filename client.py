@@ -16,7 +16,8 @@ class Client:
         collectors,
         optimize_network,
         network_interface,
-    ) -> None:
+) -> None:
+
         self.job_queue = queue_th # can be None if no threading
 
         self.network_map = network_map
@@ -45,26 +46,19 @@ class Client:
     def _bgp_client_config(self):
         client_bgp = BGPPClient(
             self.collectors[Proto.bgp.value],
-            self,
-            self.network_map['bgp_id'],
-            self.network_map['original_bgp_id'],
-        )
+            self)
         self.pclients[Proto.bgp.value] = client_bgp
 
     def _bmp_client_config(self):
         client_bmp = BMPPClient(
             self.collectors[Proto.bmp.value],
-            self,
-            #self.network_map['bgp_id'],
-            #self.network_map['original_bgp_id'],
-        )
+            self)
         self.pclients[Proto.bmp.value] = client_bmp
 
     def _ipfix_client_config(self):
         client_ipfix = IPFIXPClient(
             self.collectors[Proto.ipfix.value],
-            self,
-        )
+            self)
         self.pclients[Proto.ipfix.value] = client_ipfix
 
     def _send(self, packetwm: PacketWithMetadata):
@@ -72,10 +66,6 @@ class Client:
         proto = packetwm.type
         payload = self.get_payload(packetwm)
         return self.pclients[proto].send(payload, proto)
-
-    # return True if the protocol manager decides the packet should not be sent
-    def should_filter(self, packetwm: PacketWithMetadata):
-        return self.pclients[packetwm.type].should_filter(packetwm)
 
     # Return the byte array that should be sent to the collector
     def get_payload(self, packetwm: PacketWithMetadata):
@@ -106,10 +96,6 @@ class Client:
 
         if proto not in self.pclients:
             logging.critical(f"[{i}][{self.repro_ip}][{proto}] No clients found for protocol - SHOULD NEVER HAPPEN")
-            return -1
-
-        if self.should_filter(packetwm):
-            logging.debug(f"[{i}][{self.repro_ip}][{proto}] Message will be filtered")
             return -1
 
         if should_sync_ipfix: # only runs once between all clients

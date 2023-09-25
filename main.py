@@ -4,12 +4,13 @@ import yaml
 import signal
 import sys
 import logging
+import pathlib
 from ast import arg
 from time import time, sleep
 from prettytable import PrettyTable
 from threading import Thread
 from queue import Queue
-from scapy.all import IP, IPv6, TCP, UDP, raw, Raw, PcapWriter
+from scapy.all import IP, IPv6, TCP, UDP, raw, Raw
 
 # Internal Libraries
 from filter import filter_generator
@@ -19,28 +20,22 @@ from report import report
 from proto import Proto
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Reproduce BGP, BMP and IPFIX traffic from pcap with minimal changes")
+    parser = argparse.ArgumentParser(
+        prog="Network Telemetry Traffic Reproducer",
+        description="Reproduce IPFIX/NetFlow, BGP and BMP Traffic based on pcap file.",
+        epilog="-----------------------")
 
     parser.add_argument(
-        "-t",
-        "--test",
-        type=str,
-        dest='test_path',
+        "-t", "--test",
+        type=pathlib.Path,
+        dest='cfg',
         required=True,
-        help="Test YAML file - see test.yml.example",
-    )
-
-    parser.add_argument(
-        "-w",
-        "--write",
-        type=str,
-        dest='write',
-        help="Output file if you want to pre-filter. No packets will be sent",
+        help="Test YAML configuration file specifying repro and collector IPs and other reproduction parameters (see examples folder).",
     )
 
     parser.add_argument(
         '-v', '--verbose',
-        help="INFO",
+        help="Set log level to INFO [default=WARNING unless -d/--debug flag is used].",
         action="store_const",
         dest="loglevel",
         const=logging.INFO,
@@ -49,7 +44,7 @@ def parse_args():
 
     parser.add_argument(
         '-d', '--debug',
-        help="DEBUG",
+        help="Set log level to DEBUG [default=WARNING unless -v/--verbose flag is used].",
         action="store_const",
         dest="loglevel",
         const=logging.DEBUG,
@@ -57,7 +52,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-sync',
-        help="Disable initial IPFIX sync",
+        help="Disable IPFIX bucket sync (start reproducing pcap right away without waiting the next full minute and without considering pcap timestamps?).",
         action="store_const",
         dest="nosync",
         const=True,
@@ -66,7 +61,7 @@ def parse_args():
 
     parser.add_argument(
         '--keep-open',
-        help="Do not close connection when finished replaying pcap [default=False]",
+        help="Do not close the TCP connection when finished replaying pcap [default=False]",
         action="store_const",
         dest="keep_open",
         const=True,
@@ -76,12 +71,11 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-# parse config file for test
-def parse_test(test_path):
-    with open(test_path, "r") as stream:
+def parse_config_file(cfg):
+    with open(cfg, "r") as stream:
         return yaml.safe_load(stream)
 
-# generate map from src_ip (IP src in pcap) -> network config
+# create src_ip -> repro_ip mapping
 def create_ip_map(network_map):
     table = PrettyTable(['src_ip', 'repro_ip'])
 
@@ -113,25 +107,22 @@ def main():
     logging.basicConfig(level=args.loglevel)
 
     # parse test config file
-    test_conf = parse_test(args.test_path)
+    config = parse_config_file(args.cfg)
 
-    is_prefilter = args.write is not None
-    is_threading = test_conf['optimize']['threading'] and not is_prefilter
+    # check if we want multithreading enabled
+    is_threading = config['optimize']['threading']
 
+    # gather list of supported protocol from Proto class
     supported_protos = [e.value for e in Proto]
 
-    # create pcap src_ip -> repro_ip, BGP ID
-    ip_map = create_ip_map(test_conf['network']['map'])
+    # create src_ip -> repro_ip mapping (IP map)
+    ip_map = create_ip_map(config['network']['map'])
 
-    # selectors
-    selectors = {proto: filter_generator(test_conf[proto]['select']) for proto in supported_protos if proto in test_conf}
+    # protocol selectors
+    selectors = {proto: filter_generator(config[proto]['select']) for proto in supported_protos if proto in config}
+
     # map of clients
     clients = {}
-
-    if is_prefilter:
-        logging.warning('Filter and write mode select. No packet will be sent!')
-        # linktype=1 Ethernet
-        pcapWriter = PcapWriter(args.write, linktype=1)
 
     def stop_application(sig=None, frameg=None):
         if is_threading:
@@ -161,10 +152,6 @@ def main():
             logging.info("Printing last statistics")
             report.print_stats()
 
-        if is_prefilter:
-            pcapWriter.flush()
-            pcapWriter.close()
-
         sys.exit(0)
 
     signal.signal(signal.SIGINT, stop_application)
@@ -172,16 +159,16 @@ def main():
     # start reporting
     report.start_thread()
 
-    # pcap timestamp for first packet sent (BGP OPEN if BGP is enabled).
-    # Absolute first BGP Open even with multiple IPs
+    # pcap timestamp for first packet sent
     pcap_start_time = None
-    # real timestamp for first packet sent (BGP OPEN if BGP is enabled)
+    # real timestamp for first packet sent
     real_start_time = None
 
+    # read pcap file and select packets according to selectors
     pm = PacketManager(
-        pcap_path=test_conf['pcap'],
+        pcap_path=config['pcap'],
         selectors=selectors,
-        preload=test_conf['optimize']['preload']
+        preload=config['optimize']['preload']
     )
 
     packetwm: PacketWithMetadata
@@ -196,18 +183,19 @@ def main():
                 ip_src = packet[IP].src
             elif IPv6 in packet:
                 ip_src = packet[IPv6].src
+
             logging.debug(f"[{i}] has ip_src: {ip_src}")
 
             if ip_src not in ip_map:
                 report.pkt_nopeer_countup()
-                logging.debug(f"[{i}] discarded as {ip_src} not in IP Map (network->map)")
+                logging.debug(f"[{i}] discarded as {ip_src} not in IP Map (not specified as src_ip in config file)")
                 continue
 
             if ip_src not in clients:
-                network_map = ip_map[ip_src] # network->map element
-                collectors = {x: test_conf[x]['collector'] for x in supported_protos if x in test_conf}
-                optimize_network = test_conf['optimize']['network']
-                network_interface = test_conf['network']['interface']
+                network_map = ip_map[ip_src]
+                collectors = {x: config[x]['collector'] for x in supported_protos if x in config}
+                optimize_network = config['optimize']['network']
+                network_interface = config['network']['interface']
 
                 queue_th = Queue() if is_threading else None
                 client = Client(
@@ -229,19 +217,9 @@ def main():
                 else:
                     clients[ip_src] = client
 
-
-            # if prefilter, then send no messages, just filter and save!
-            if is_prefilter:
-                if not clients[ip_src].should_filter(packetwm):
-                    report.pkt_proto_sent_countup(packetwm.type)
-                    # write packet
-                    logging.debug(f"[{i}] Writing to file")
-                    pcapWriter.write(packetwm.packet)
-                continue
-
             # calculate sleep time and sleep
             if pcap_start_time is not None:
-                sleep_time = sleep_between_pkts(packet, real_start_time, pcap_start_time, test_conf['time_factor'])
+                sleep_time = sleep_between_pkts(packet, real_start_time, pcap_start_time, config['time_factor'])
                 report.set_sleep(sleep_time)
                 if sleep_time > 10:
                     logging.info(f"Sleeping for {sleep_time}s")
@@ -250,6 +228,7 @@ def main():
 
             # the reproduce function actually decide if it should sync ipfix or not
             should_sync_ipfix = pcap_start_time is None and not args.nosync
+
             # return 0 signifies that packet was not discared but program in multithreading
             sent = clients[ip_src].reproduce(packetwm, should_sync_ipfix=should_sync_ipfix)
 
@@ -267,11 +246,9 @@ def main():
             logging.critical(f"Error! Stopping application on packet [{i}]: {e}")
             break
 
-    if not (args.keep_open or test_conf['keep_open']):
+    if not (args.keep_open or config['keep_open']):
         print('Closing sockets and stopping application...')
         stop_application()
-
-
 
 if __name__ == "__main__":
     main()

@@ -12,7 +12,6 @@ class PacketWithMetadata:
         self.packet = packet
         self.type = typ
 
-
 class PacketManager:
     def __init__(self, pcap_path, selectors, preload=True):
         self.pcap_path = pcap_path
@@ -37,7 +36,7 @@ class PacketManager:
     def __iter__(self):
         self.current_packet = 0
 
-        # if not preload, use pcapreader, which reads packet by packet
+        # if not preload, use scapy's PcapReader, which reads packet by packet
         if not self.preload:
             logging.info('Preload is disabled')
             self.reader = iter(PcapReader(self.pcap_path))
