@@ -20,11 +20,28 @@ source venv/bin/activate
 pip install -r requiremements.txt
 ```
 
-### Pcap file preparation
+## Pcap file preparation
 
 TODO: write this section (pcap record + pcap pre-processing, pcap generation [if I will have some examples to craft ipfix or else...], guidelines...)
 
-### Run the program
+### pcap-tools [non-exhaustive list of pcap generating/pre-processing tools] - (*) means that it still needs to be developed
+
+
+- timestamp adjusting (start sending at mm:02 with configurable inter-packet-delay, minimum 1ms=0.001s)
+  --> this needs to be very smart (some delays automatically added where needed, such as 0.5s between OPEN and BGP data or 1-2 secs between template and ipfix data
+      and 1-4s between ipfix option data and ipfix data to ensure everything is in memory in all scenarios...)
+  --> do this with a config file where wanted ips + protocols + delays + order is specified 
+  --> ideally this script should be the only one needed and should support most functionality in the scripts below (i.e. from a pcap with data from all protocol it should 
+      generate a pcap ready to be reproduced, with bgp data first, then ipfix templates, then ipfix data, discarding all ipfix before the templates, ecc....)
+
+- ipfix/bmp/bgp extractors
+- pcap merger (e.g. to merge bmp/bgp with ipfix)
+- bgp cleaner: check we start with full open sessions & discard all previous stuff, etc... 
+- bmp cleaner: check start with init message, select only certain IP, etc...
+- ipfix cleaner: check we start with templates & options + option data, then only afterwards send flow record data
+
+
+## Run the program
 
 ```sh
 > python main.py -h

@@ -16,8 +16,8 @@ class GenericPClient:
     def __init__(
         self,
         collector,
-        client
-    ):
+        client):
+
         self.proto = "unknown"
         self.collector = collector
         self.socket_init = False
@@ -42,7 +42,7 @@ class GenericPClient:
     def _init_socket(self):
         self.socket_init = True
 
-        # socket has already a socket initialized by the child class with the right proto (UDP or TCP)
+        # socket has already a socket initialized by one the child classes with the right proto (UDP or TCP)
         s = self.socket
 
         # set additional socket options
