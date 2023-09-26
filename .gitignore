@@ -2,3 +2,4 @@
 **/venv/
 cheatsheet*
 docker/*
+**/__tmp**/

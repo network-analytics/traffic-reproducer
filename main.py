@@ -87,16 +87,24 @@ def create_ip_map(network_map):
     logging.info(table)
     return ip_map
 
+# Compute the inter-packet sleeping time based on inter-packet delay in the pcap
 def sleep_between_pkts(packet, real_start_time, pcap_start_time, time_factor):
-    pcap_this_time = packet.time
-    curr_time = time()
-    ellapsed_real_time = curr_time - real_start_time
-    ellapsed_pcap_time = float(pcap_this_time - pcap_start_time)
+    ellapsed_real_time = time() - real_start_time
+    ellapsed_pcap_time = float(packet.time - pcap_start_time)
     theoretical_sleep_time = ellapsed_pcap_time * time_factor - ellapsed_real_time
-    report.set_delay(min(theoretical_sleep_time, 0))
 
-    sleep_time = max(theoretical_sleep_time - 0.01, 0)
-    logging.debug(f"Sleeping {sleep_time} - Ellapsed real time: {ellapsed_real_time} (after sleep {ellapsed_real_time + sleep_time}) - Ellapsed pcap time: {ellapsed_pcap_time}")
+    # Reporting delay to give an idea if repro is behind schedule given by pcap intervals
+    report.set_delay(min(theoretical_sleep_time, 0))  
+
+    # Compute actual sleep_time (in 1ms intervals)
+    sleep_time = round(max(theoretical_sleep_time, 0),3)
+
+    # Some debug logs
+    logging.debug(f"Ellapsed pcap time: {ellapsed_pcap_time}")
+    logging.debug(f"Ellapsed real time: {ellapsed_real_time}")
+    logging.debug(f"Multiplicative time factor: {time_factor}")
+    logging.debug(f"Sleep time: {sleep_time}s [in 1ms steps]")
+
     return sleep_time
 
 
@@ -217,7 +225,7 @@ def main():
                 else:
                     clients[ip_src] = client
 
-            # calculate sleep time and sleep
+            # calculate sleep time (in between packets) and sleep
             if pcap_start_time is not None:
                 sleep_time = sleep_between_pkts(packet, real_start_time, pcap_start_time, config['time_factor'])
                 report.set_sleep(sleep_time)
@@ -226,7 +234,7 @@ def main():
                 sleep(sleep_time)
 
 
-            # the reproduce function actually decide if it should sync ipfix or not
+            # check if sync to ipfix bucket is necessary (before first packet is sent)
             should_sync_ipfix = pcap_start_time is None and not args.nosync
 
             # return 0 signifies that packet was not discared but program in multithreading

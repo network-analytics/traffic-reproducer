@@ -100,12 +100,18 @@ class Client:
 
         if should_sync_ipfix: # only runs once between all clients
             now_second_from_min = time() % 60
-            pkt_second_from_min = int(packetwm.packet.time) % 60
-            sleep_time = round((pkt_second_from_min-now_second_from_min) % 60, 3)
+            pkt_second_from_min = float(packetwm.packet.time) % 60
+            sleep_time = round(60 - now_second_from_min + pkt_second_from_min, 3)
+            
+            # Some debug logs
+            logging.debug(f"Second in first packet in the pcap: {pkt_second_from_min}")
+            logging.debug(f"Second in current minute: {now_second_from_min}")
+            logging.debug(f"Sleep time: {sleep_time}s [in 1ms steps]")
+
             while sleep_time > 0:
                 logging.info(f"Waiting an additional {sleep_time}s to sync IPFIX to pmacct bucket")
                 sleep(min(sleep_time, 1))
-                sleep_time -= 1
+                sleep_time = round(sleep_time - 1, 3)
 
         if self.job_queue is not None:
             # threading mode, add to queue
