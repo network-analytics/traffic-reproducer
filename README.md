@@ -1,6 +1,6 @@
 # Traffic Reproducer
 
-Given a PCAP and a configuration file, this scapy-based tool can reproduce traffic to a collector. This can be useful, for example, to debug or test a collector with a recording from some routers.
+Given a PCAP and a configuration file, this scapy-based tool can reproduce traffic to a collector. This can be useful, for example, to debug or test a collector with data from some routers or with handcrafted telemetry data.
 
 ## Features
 
@@ -20,9 +20,9 @@ source venv/bin/activate
 pip install -r requiremements.txt
 ```
 
-### Pcap file record and preprocessing
+### Pcap file preparation
 
-TODO: write this section 
+TODO: write this section (pcap record + pcap pre-processing, pcap generation [if I will have some examples to craft ipfix or else...], guidelines...)
 
 ### Run the program
 
