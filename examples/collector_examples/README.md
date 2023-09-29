@@ -1,1 +1,0 @@
-Examples for quickly setting up a collector to test the traffic reproducer. In these examples we are using pmacct, more specifically nfacctd (netflow accounting daemon).
