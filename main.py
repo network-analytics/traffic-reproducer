@@ -29,19 +29,20 @@ def parse_args():
     parser = argparse.ArgumentParser(
         prog="main.py",
         description="Network Telemetry Traffic Reproducer: reproduce IPFIX/NetFlow, BGP and BMP Traffic based on pcap file.",
-        epilog="-----------------------")
+        epilog="-----------------------",
+        formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument(
         "-t", "--test",
         type=pathlib.Path,
         dest='cfg',
         required=True,
-        help="Test YAML configuration file path specifying repro and collector IPs and other reproduction parameters (see examples folder).",
+        help="YAML configuration file path \n  --> set IPs and other parameters, look at examples folder for some sample configs",
     )
 
     parser.add_argument(
         '-v', '--verbose',
-        help="Set log level to INFO [default=WARNING unless -d/--debug flag is used].",
+        help="Set log level to INFO \n  --> default=WARNING, unless -d/--debug flag is used",
         action="store_const",
         dest="loglevel",
         const=logging.INFO,
@@ -50,7 +51,7 @@ def parse_args():
 
     parser.add_argument(
         '-d', '--debug',
-        help="Set log level to DEBUG [default=WARNING unless -v/--verbose flag is used].",
+        help="Set log level to DEBUG \n  --> default=WARNING, unless -v/--verbose flag is used",
         action="store_const",
         dest="loglevel",
         const=logging.DEBUG,
@@ -58,7 +59,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-sync',
-        help="Disable IPFIX bucket sync (start reproducing pcap right away without waiting the next full minute).",
+        help="Disable IPFIX bucket sync to the next full minute \n  --> default=False, argument also configurable through the config file [args OR config]",
         action="store_const",
         dest="nosync",
         const=True,
@@ -67,7 +68,7 @@ def parse_args():
 
     parser.add_argument(
         '--keep-open',
-        help="Do not close the TCP connection when finished replaying pcap [default=False].",
+        help="Do not close the TCP connection when finished replaying pcap \n  --> default=False, argument also configurable through the config file [args OR config]",
         action="store_const",
         dest="keep_open",
         const=True,
@@ -241,7 +242,7 @@ def main():
 
 
             # check if sync to ipfix bucket is necessary (before first packet is sent)
-            should_sync_ipfix = pcap_start_time is None and not args.nosync
+            should_sync_ipfix = pcap_start_time is None and not (args.nosync | config['no_sync'])
 
             # return 0 signifies that packet was not discared but program in multithreading
             sent = clients[ip_src].reproduce(packetwm, should_sync_ipfix=should_sync_ipfix)

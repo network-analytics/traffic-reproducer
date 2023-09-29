@@ -35,11 +35,16 @@ Network Telemetry Traffic Reproducer: reproduce IPFIX/NetFlow, BGP and BMP Traff
 
 options:
   -h, --help          show this help message and exit
-  -t CFG, --test CFG  Test YAML configuration file path specifying repro and collector IPs and other reproduction parameters (see examples folder).
-  -v, --verbose       Set log level to INFO [default=WARNING unless -d/--debug flag is used].
-  -d, --debug         Set log level to DEBUG [default=WARNING unless -v/--verbose flag is used].
-  --no-sync           Disable IPFIX bucket sync (start reproducing pcap right away without waiting the next full minute).
-  --keep-open         Do not close the TCP connection when finished replaying pcap [default=False].
+  -t CFG, --test CFG  YAML configuration file path
+                        --> set IPs and other parameters, look at examples folder for some sample configs
+  -v, --verbose       Set log level to INFO
+                        --> default=WARNING, unless -d/--debug flag is used
+  -d, --debug         Set log level to DEBUG
+                        --> default=WARNING, unless -v/--verbose flag is used
+  --no-sync           Disable IPFIX bucket sync to the next full minute
+                        --> default=False, argument also configurable through the config file [args OR config]
+  --keep-open         Do not close the TCP connection when finished replaying pcap
+                        --> default=False, argument also configurable through the config file [args OR config]
 
 -----------------------
 ```
