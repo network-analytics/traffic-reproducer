@@ -5,7 +5,7 @@ Given a PCAP and a configuration file, this scapy-based tool can reproduce traff
 ## Features
 
 - Reproduce IPFIX/NFv9/NFv5, BMP and BGP from pcap files
-- Simulates respecting the timestamps within the PCAP
+- Simulates respecting the inter-packet timestamps within the PCAP
 - Simulates multiple clients via multiple configurable IPs
 - Support for VRF in linux
 - Easy integration with new protocols
@@ -20,12 +20,7 @@ source venv/bin/activate
 pip install -r requiremements.txt
 ```
 
-## Generating a pcap file
-
-### pcap-tools [in development]
-
-
-## Running the tool
+## Usage
 
 ```sh
 > python main.py -h
@@ -48,6 +43,12 @@ options:
 
 -----------------------
 ```
+
+## Generating a pcap file
+
+### pcap-tools [in development]
+
+## Internals
 
 ### Time bucketing
 
