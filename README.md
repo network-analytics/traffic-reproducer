@@ -46,7 +46,9 @@ options:
 
 ## Generating a pcap file
 
-### pcap-tools [in development]
+### Pcap pre-processing
+
+TODO: explain how to use and what it does 
 
 ## Internals
 
