@@ -19,7 +19,7 @@ from queue import Queue
 from scapy.all import IP, IPv6, TCP, UDP, raw, Raw
 
 # Internal Libraries
-from pcap_tools.filter import filter_generator
+from pcap_utils.filter import filter_generator
 from client import Client
 from packet_manager import PacketManager, PacketWithMetadata
 from report import report

@@ -17,7 +17,7 @@ from scapy.utils import wrpcap
 
 # Internal Libraries
 from proto import Proto
-from pcap_tools.process_ipfix import IpfixProcessing
+from pcap_utils.process_ipfix import IpfixProcessing
 
 class PcapProcessing:
     # set inter packet and inter protocols delays according to config

@@ -2,17 +2,24 @@
 pcap: ["capture1.pcap", "capture2.pcap"]    # TODO implement here list support! (pcaps are simply merged in this order, then processed...)
 
 pcap_processing:
-  inter-packet-delay: 1     # ms (default:1ms, not mandatory argument)
-
-  output:
-    pcap:             traffic-00.pcap               # Future: maybe not required if we reproduce directly after preprocessing
-    repro-config:     traffic-reproducer-00.yml                         
-    info:             traffic-info.json
+  exit: yes                                               # mandatory, default=no, if yes do not reproduce (only perform the pcap_processing then exit) [still to implement most stuff]
+  inter_packet_delay: 0.001                               # not mandatory, seconds [default:1ms]
+  inter_protocol_delay: 1                                 # not mandatory, seconds [default:1s]
+  output_folder: /tmp                                     # not mandatory, if not present use pcap name without extention as folder name
+   
+  # Still to implement (if there is time/is required)
+  anonymize: yes                # not mandatory, default no, if yes=change all in-protocol IPs/MAC_addresses to random ones (use some random ips and mac addresses)
+  bmp_stats: no                 # don't reproduce bmp_stats [--> this also can probably be done in the filter!]
+  ipfix_repeat:
+    amount: 5                   # add the same packets again 5x times
+    sleep: 60                   # every time adding 60s to the timestamps before sending them again
+    mixup: yes                  # apart from template, mix up the order of the packets
+    randomize_counts: yes       # for the repetitions, randomize some of the fields like count, bytes [s.t. subsequent runs are not 100% the same]
 
 network:
   map: # input -> output pcap src_ip mapping  (dst_ip set to 0.0.0.0 anyway as not considered by the traffic-reproducer)
     - src_ip:         10.235.1.3
-      repro_ip:       172.1.100.1     # Will be used both to set the output pcap src_ips and for the traffic-reproducer-00.yml config output
+      repro_ip:       172.1.100.1     # Will be used as repro-ip in traffic-reproducer-00.yml config output [pre-processing does not change src-ip]
     - src_ip:         10.254.2.4
       repro_ip:       172.1.100.2
 
@@ -20,27 +27,17 @@ protocol:
   bgp:
     select: 
       tcp:
-        dport: 179
-    include:                # Only available when preprocessing
-      withdraw: yes         # Include/exclude withdrawal messages   
+        dport: 179 
 
   bmp:
     select: 
       tcp:
         dport: 1790
-    include:                # Only available when preprocessing
-      stats: no             # Include/exclude bmp stats
 
   ipfix:
     select:
       udp:
         dport: 9991
-    include:                # Only available when preprocessing
-      ipfix_versions: [v9, v10]     # with this config, any v5 would be discarded
-      repeated_templates: no        # default yes, and it means keep all templates even if they were seen before...
-      anonymize: yes                # default no, if yes=change all in-protocol IPs/MAC_addresses to random ones (use some random ips and mac addresses)
-      repeat:
-        amount: 5                   # add the same packets again 5x times
-        sleep: 60                   # every time adding 60s to the timestamps before sending them again
-        mixup: yes                  # apart from template, mix up the order of the packets
-        randomize_counts: yes       # for the repetitions, randomize some of the fields like count, bytes [s.t. subsequent runs are not 100% the same]
+      cflow:
+        version: [10, 9, 5]
+      

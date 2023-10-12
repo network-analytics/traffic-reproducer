@@ -5,7 +5,8 @@
 #
 
 # External Libraries
-from scapy.all import IP, IPv6, TCP, UDP
+from scapy.all import IP, IPv6, TCP, UDP, raw
+from scapy.layers.netflow import NetflowHeader
 
 def filter_generator(flt):
     if flt is None:
@@ -37,6 +38,16 @@ def filter_generator(flt):
             for f in flt['udp']:
                 if not getattr(pkt[UDP], f) == flt['udp'][f]:
                     return False
+
+        if 'cflow' in flt:
+            if IP in pkt:
+              for f in flt['cflow']:
+                  if getattr(NetflowHeader(raw(pkt[IP].payload.payload)), f) not in flt['cflow'][f]:
+                      return False
+            elif IPv6 in pkt:
+              for f in flt['cflow']:
+                  if getattr(NetflowHeader(raw(pkt[IPv6].payload.payload)), f) not in flt['cflow'][f]:
+                      return False
 
         return True
     return F

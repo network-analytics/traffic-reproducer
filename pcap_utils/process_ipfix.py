@@ -15,13 +15,16 @@ from scapy.all import rdpcap
 from scapy.layers.netflow import *
 
 # Internal Libraries
-from pcap_tools.filter import filter_generator
+from pcap_utils.filter import filter_generator
 
 class IpfixProcessing:
     def __init__(self, pp_data):
 
-        # Info about templates, ips, amount of messages
-        # { v10: { TEMPLATE_ID: {TEMPLATE_INFO}}}
+        #   "ip_src": {
+        #       "IPFIX version": {
+        #           "Observation ID": {
+        #               "Template ID ": { ...
+        #                                 ... }
         self.info = {}
 
         # Some parameters from PcapProcessing Class
@@ -65,10 +68,6 @@ class IpfixProcessing:
     # Check if data template is there already, otherwise register
     def register_data_template(self, ip_src, ipfix_packet):
 
-        #ipfix_packet.show()
-        #print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
-        #self.__get_layers(ipfix_packet, True)
-
         if ipfix_packet.haslayer(NetflowHeaderV9):
             SourceID = ipfix_packet.SourceID
         elif ipfix_packet.haslayer(NetflowHeaderV10):
@@ -108,10 +107,6 @@ class IpfixProcessing:
     # Check if option template [v9] is there already, otherwise register
     def register_option_templatev9(self, ip_src, ipfix_packet):
 
-        #ipfix_packet.show()
-        #print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
-        #self.__get_layers(ipfix_packet, True)
-
         SourceID = ipfix_packet.SourceID
         
         i = 1
@@ -150,10 +145,6 @@ class IpfixProcessing:
     # Check if option template [v10] is there already, otherwise register
     def register_option_templatev10(self, ip_src, ipfix_packet):
 
-        #ipfix_packet.show()
-        #print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
-        #self.__get_layers(ipfix_packet, True)
-
         SourceID = ipfix_packet.ObservationDomainID
 
         i = 1
@@ -191,14 +182,6 @@ class IpfixProcessing:
             i = i + 1
 
     def template_for_data_packet_exists(self, ip_src, ipfix_packet):
-        
-        # TODO: also here we need to support iteration on flowsets with while loop!
-        # --> iterate on NetflowDataflowsetV9
-
-        #ipfix_packet.show()
-        # TMP Get IPFIX/NetFlow Layers (helper for development)
-        #print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
-        #self.__get_layers(ipfix_packet, True)
 
         if ipfix_packet.haslayer(NetflowHeaderV9):
             SourceID = ipfix_packet.SourceID
@@ -233,10 +216,6 @@ class IpfixProcessing:
     # Apply custom checks on IPFIX/NetFlow packet
     #  --> return False if packet needs to be discarded...
     def ipfix_custom_checks(self, ip_src, ipfix_packet):
-
-        # Version check (TODO: add this to the filtering!)
-        if ipfix_packet.version not in self.config['ipfix']['include']['ipfix_versions']:
-            return False
         
         # Data Packet - v5
         if ipfix_packet.haslayer(NetflowHeaderV5):
@@ -261,9 +240,9 @@ class IpfixProcessing:
 
         return True
 
-
-    # - remove data packets with no previously seen matching template
-    # - get some info for traffic-info.json
+    # Inspect packet by packet while:
+    #   - removing data packets with no previously seen matching template
+    #   - geting some info for traffic-info.json
     def inspect_and_cleanup(self, packets):
         packets_new = []
 
@@ -280,7 +259,6 @@ class IpfixProcessing:
             # Decode IPFIX/Netflow
             ipfix_packet = NetflowHeader(raw(ipfix_payload))
 
-            # TMP LOGGING FOR DEBUGGING
             #ipfix_packet.show()
             # TMP Get IPFIX/NetFlow Layers (helper for development)
             #print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
@@ -312,7 +290,6 @@ class IpfixProcessing:
 
 
         return packets_new
-
 
     def start(self):
 
