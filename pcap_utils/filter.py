@@ -14,15 +14,15 @@ def filter_generator(flt):
 
     def F(pkt):
         if 'ip' in flt:
-            if IP or IPv6 not in pkt:
+            if IP not in pkt and IPv6 not in pkt:
                 return False
             elif IP in pkt:
               for f in flt['ip']:
-                  if not getattr(pkt[IP], f) == flt['ip'][f]:
+                  if getattr(pkt[IP], f) not in flt['ip'][f]:
                       return False
             elif IPv6 in pkt:
               for f in flt['ip']:
-                  if not getattr(pkt[IPv6], f) == flt['ip'][f]:
+                  if getattr(pkt[IPv6], f) not in flt['ip'][f]:
                       return False
 
         if 'tcp' in flt:
@@ -40,7 +40,11 @@ def filter_generator(flt):
                     return False
 
         if 'cflow' in flt:
-            if IP in pkt:
+            if UDP not in pkt:
+                return False
+            if IP not in pkt and IPv6 not in pkt:
+                return False
+            elif IP in pkt:
               for f in flt['cflow']:
                   if getattr(NetflowHeader(raw(pkt[IP].payload.payload)), f) not in flt['cflow'][f]:
                       return False
@@ -48,6 +52,18 @@ def filter_generator(flt):
               for f in flt['cflow']:
                   if getattr(NetflowHeader(raw(pkt[IPv6].payload.payload)), f) not in flt['cflow'][f]:
                       return False
+
+        if 'bgp' in flt:
+            if TCP not in pkt:
+                return False
+            if IP not in pkt and IPv6 not in pkt:
+                return False
+            elif IP in pkt:
+                if pkt[IP].len - 4*pkt[IP].ihl - 4*pkt[TCP].dataofs == 0: # discard TCP packets with no payload
+                    return False
+            elif IPv6 in pkt:
+                if pkt[IPv6].plen - 4*pkt[TCP].dataofs == 0: # discard TCP packets with no payload
+                    return False
 
         return True
     return F

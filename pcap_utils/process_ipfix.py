@@ -10,28 +10,29 @@ import logging
 import pathlib
 import os
 from time import time, sleep
-from scapy.all import IP, IPv6, raw
-from scapy.all import rdpcap
+from scapy.all import IP, IPv6, raw, rdpcap
 from scapy.layers.netflow import *
 
 # Internal Libraries
 from pcap_utils.filter import filter_generator
 
 class IpfixProcessing:
-    def __init__(self, pp_data):
+    def __init__(self, pcap_file, ipfix_selectors, inter_packet_delay, random_seed):
 
         #   "ip_src": {
         #       "IPFIX version": {
         #           "Observation ID": {
         #               "Template ID ": { ...
+        #                   "type": 
+        #                   "flowset_id": 
+        #                   "data_flowset_counter": 
         #                                 ... }
         self.info = {}
 
-        # Some parameters from PcapProcessing Class
-        self.config = pp_data.config
-        self.inter_packet_delay = pp_data.inter_packet_delay
-        self.random_seed = pp_data.random_seed
-        self.ip_map = pp_data.ip_map
+        self.pcap_file = pcap_file
+        self.ipfix_selectors = ipfix_selectors
+        self.inter_packet_delay = inter_packet_delay
+        self.random_seed = random_seed
     
     # Scapy Helpers
     def __get_layers(self, packet, do_print=False):
@@ -49,7 +50,6 @@ class IpfixProcessing:
 
             counter += 1
         return layers
-        
 
     # Add some info to self.info dict for v5 records
     def register_v5_info(self, ip_src, ipfix_packet):
@@ -242,19 +242,23 @@ class IpfixProcessing:
 
     # Inspect packet by packet while:
     #   - removing data packets with no previously seen matching template
-    #   - geting some info for traffic-info.json
+    #   - adding some info to traffic-info.json
     def inspect_and_cleanup(self, packets):
         packets_new = []
 
         for packet in packets:
 
-            # Get IPFIX/NetFlow payload
+            # Add ip_src to self.info dict
             if IP in packet:
                 ip_src = str(packet[IP].src)
-                ipfix_payload = packet[IP].payload.payload
             elif IPv6 in packet:
                 ip_src = str(packet[IPv6].src)
-                ipfix_payload = packet[IPv6].payload.payload
+
+            if str(ip_src) not in self.info.keys():
+                self.info[str(ip_src)] = {}
+
+            # Get Raw IPFIX/NetFlow payload
+            ipfix_payload = packet[UDP].payload
 
             # Decode IPFIX/Netflow
             ipfix_packet = NetflowHeader(raw(ipfix_payload))
@@ -269,39 +273,32 @@ class IpfixProcessing:
         
         return packets_new
 
-    # Extract IPFIX/NetFlow packets
+    # Extract IPFIX/NetFlow packets with selectors
     def extract_ipfix_packets(self, packets):
         packets_new = []
 
+        # Generate filter from selectors
+        logging.debug(f"ipfix_selectors: {self.ipfix_selectors}")
+        proto_filter = filter_generator(self.ipfix_selectors)
+
         for packet in packets:
-            if IP in packet:
-                ip_src = packet[IP].src
-            elif IPv6 in packet:
-                ip_src = packet[IPv6].src
             
-            proto_filter = filter_generator(self.config['ipfix']['select'])
-
-            if proto_filter(packet) and ip_src in self.ip_map:
+            if proto_filter(packet):
                 packets_new.append(packet)
-
-                # Add ip_src to self.info dict
-                if str(ip_src) not in self.info.keys():
-                    self.info[str(ip_src)] = {}
-
 
         return packets_new
 
     def start(self):
 
         # Load pcap in memory
-        packets = rdpcap(self.config['pcap'])
+        packets = rdpcap(self.pcap_file)
         logging.info(f"Size of packets: {len(packets)}") 
 
         # Extract IPFIX/NetFlow packets and defragment
         packets = self.extract_ipfix_packets(packets)
-        logging.info(f"Size of ipfix packets: {len(packets)}")
+        logging.debug(f"Size of ipfix packets: {len(packets)}")
         packets = netflowv9_defragment(packets)
-        logging.info(f"Size of ipfix packets defragmented: {len(packets)}")
+        logging.debug(f"Size of ipfix packets defragmented: {len(packets)}")
 
         # Start processing
         packets = self.inspect_and_cleanup(packets)

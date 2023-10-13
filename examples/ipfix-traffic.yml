@@ -24,6 +24,8 @@ ipfix:
   select:                               # select BGP packet in pcap based on the following two parameters. Use as "filter"
     udp:
       dport: 9991
+    cflow:
+      version: [10]                     # not mandatory, if omitted all versions will be selected
   collector:                            # define the collector that will receive the reproduced messages
     ip: localhost
     port: 9991
