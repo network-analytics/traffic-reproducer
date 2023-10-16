@@ -140,6 +140,7 @@ class BGPProcessing:
     def tcp_reassembly(self, packets):
         
         packets_new = []
+        bgp_packets_new = []
         tcp_sessions = packets.sessions()
         
         # Process BGP sessions
@@ -147,7 +148,16 @@ class BGPProcessing:
 
             logging.debug(f"Reassembling TCP session [ID = {session_id}]")
             #print(plist.summary())
-        
+
+            # Get some important info to reconstruct Headers
+            first_pkt = plist[0]
+            if IP in first_pkt:
+                ip_src = first_pkt[IP].src
+                ip_dst = first_pkt[IP].src
+            elif IPv6 in  first_pkt:
+                ip_src = first_pkt[IPv6].src
+                ip_dst = first_pkt[IPv6].src
+
             # Reassemble TCP session
             for packet in plist:
 
@@ -158,27 +168,36 @@ class BGPProcessing:
                 # Append payload to previous packet
                 if packet[TCP].payload.name == "Raw":
 
-                    print("PAYLOAD IS RAW --> appending to previous")
-
                     # Append the Raw payload to the previous packet
-                    previous_raw = raw(packets_new[-1])
+                    previous_raw = raw(bgp_packets_new[-1])
                     reassembled_raw = previous_raw + raw(packet[TCP].payload)
-                    reassembled = Ether(reassembled_raw)
+                    reassembled = BGP(reassembled_raw)
 
-                    # Adjust TCP header params
-                    reassembled[TCP].chksum = None
-                    if IP in packet:
-                        reassembled[IP].len += (packet[IP].len - 4*packet[IP].ihl - 4*packet[TCP].dataofs)
-                        reassembled[IP].chksum = None
-                    elif IPv6 in packet:
-                        reassembled[IPv6].plen += (packet[IPv6].plen - 4*packet[TCP].dataofs)
-
-                    packets_new[-1] = reassembled
+                    bgp_packets_new[-1] = reassembled
 
                 else:
-                    packets_new.append(packet)
+                    bgp_packets_new.append(packet[TCP].payload)
+            
+            next_tcp_seq_nr = 1
+            for bgp_packet in bgp_packets_new:
+                # TMP Get BGP Layers (helper for development)
+                #print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
+                #layers = self.__get_layers(bgp_packet, True)
+                
+                tcp_payload_size = len(raw(bgp_packet))
+                flg = 0x02 if next_tcp_seq_nr == 1 else 0x08
+                if IP in first_pkt:
+                    reassembled_ether = Ether() / IP(src=ip_src, dst=ip_dst) / TCP(seq=next_tcp_seq_nr, ack=1, flags=flg, dport=179) / Raw(load=raw(bgp_packet))
+                    next_tcp_seq_nr += tcp_payload_size
+                elif IPv6 in  first_pkt:
+                    reassembled_ether = Ether() / IPv6(src=ip_src, dst=ip_dst) / TCP(seq=next_tcp_seq_nr, ack=1, flags=flg, dport=179) / Raw(load=raw(bgp_packet))
+                    next_tcp_seq_nr += tcp_payload_size
+
+                packets_new.append(reassembled_ether)
+
                                     
         return PacketList(packets_new)
+
 
     # BGP session cleanup
     # - discard all messages before OPEN is received
@@ -234,9 +253,7 @@ class BGPProcessing:
         packets = self.bgp_session_cleanup(packets)
 
         # TCP reassembly
-        # TODO: migliorare che ha dei problemi...
-        # --> idea, magari basta aggiungere il filtro per ffffff nel filter (provare...!)
-        #packets = self.tcp_reassembly(packets)
+        packets = self.tcp_reassembly(packets)
 
         # Filter on additional parameters if necessary
         #packets = self.bgp_apply_additional_filters(packets)

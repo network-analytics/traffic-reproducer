@@ -57,7 +57,7 @@ def filter_generator(flt):
             elif IPv6 in pkt:
                 if pkt[IPv6].plen - 4*pkt[TCP].dataofs < 19: # discard too small packets
                     return False
-            # TODO: also check if payload contains BGP marker ffff, otherwise discard!
+            # TODO: also check if payload contains BGP marker ffff, otherwise discard! (don't know if strictly needed?)
 
         return True
     return F
