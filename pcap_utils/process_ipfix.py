@@ -10,7 +10,7 @@ import logging
 import pathlib
 import os
 from time import time, sleep
-from scapy.all import IP, IPv6, raw, rdpcap
+from scapy.all import IP, IPv6, raw, rdpcap, EDecimal
 from scapy.layers.netflow import *
 
 # Internal Libraries
@@ -50,6 +50,21 @@ class IpfixProcessing:
 
             counter += 1
         return layers
+
+    # TODO: modify this s.t. we have higher delay between template & data
+    def adjust_timestamps(self, packets):
+
+        packets_new = []
+
+        reference_time = EDecimal(1672534800.000) # does this make sense?
+        
+        pkt_counter = 0
+        for pkt in packets:
+            pkt.time = reference_time + EDecimal(pkt_counter * self.inter_packet_delay)
+            packets_new.append(pkt)
+            pkt_counter += 1
+        
+        return PacketList(packets_new)
 
     # Add some info to self.info dict for v5 records
     def register_v5_info(self, ip_src, ipfix_packet):
@@ -303,7 +318,11 @@ class IpfixProcessing:
         # Start processing
         packets = self.inspect_and_cleanup(packets)
 
-        logging.info(f"Size of ipfix packets processed: {len(packets)}") 
+        # Anonymize
 
+        # Adjust timestamps
+        packets = self.adjust_timestamps(packets)
+
+        logging.info(f"Size of ipfix packets processed: {len(packets)}")
         return [self.info, packets]
 

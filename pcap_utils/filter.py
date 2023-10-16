@@ -42,16 +42,9 @@ def filter_generator(flt):
         if 'cflow' in flt:
             if UDP not in pkt:
                 return False
-            if IP not in pkt and IPv6 not in pkt:
-                return False
-            elif IP in pkt:
-              for f in flt['cflow']:
-                  if getattr(NetflowHeader(raw(pkt[IP].payload.payload)), f) not in flt['cflow'][f]:
-                      return False
-            elif IPv6 in pkt:
-              for f in flt['cflow']:
-                  if getattr(NetflowHeader(raw(pkt[IPv6].payload.payload)), f) not in flt['cflow'][f]:
-                      return False
+            for f in flt['cflow']:
+                if getattr(NetflowHeader(raw(pkt[UDP].payload)), f) not in flt['cflow'][f]:
+                    return False
 
         if 'bgp' in flt:
             if TCP not in pkt:
@@ -59,11 +52,12 @@ def filter_generator(flt):
             if IP not in pkt and IPv6 not in pkt:
                 return False
             elif IP in pkt:
-                if pkt[IP].len - 4*pkt[IP].ihl - 4*pkt[TCP].dataofs == 0: # discard TCP packets with no payload
+                if pkt[IP].len - 4*pkt[IP].ihl - 4*pkt[TCP].dataofs < 19: # discard too small packets
                     return False
             elif IPv6 in pkt:
-                if pkt[IPv6].plen - 4*pkt[TCP].dataofs == 0: # discard TCP packets with no payload
+                if pkt[IPv6].plen - 4*pkt[TCP].dataofs < 19: # discard too small packets
                     return False
+            # TODO: also check if payload contains BGP marker ffff, otherwise discard!
 
         return True
     return F

@@ -10,23 +10,26 @@ import logging
 import pathlib
 import os
 from time import time, sleep
-from scapy.all import IP, IPv6, raw, rdpcap
+from scapy.all import Ether, IP, IPv6, Raw, raw, rdpcap, PacketList, EDecimal
 from scapy.contrib.bgp import *
 
 # Internal Libraries
 from pcap_utils.filter import filter_generator
+from pcap_utils.bgp_filter import bgp_filter_generator
 
 class BGPProcessing:
     def __init__(self, pcap_file, bgp_selectors, inter_packet_delay, random_seed):
 
-        #   "ip_src": {
-        #       "BGP Version"
-        #           "BGP ID": { ...
-        #               "AS number": 
-        #               "capabilities": []
-        #               "updates_counter": 
-        #               "withdraws_counter":
-        #                            ... }
+        #   "ip_src": { ...
+        #         "bgp_version"
+        #         "bgp_id":
+        #         "as_number": 
+        #         "capabilities": []
+        #         "updates_counter": 
+        #         "notif_counter":
+        #         "keepalive_counter":
+        #         "route_refresh_counter": 
+        #                        ... }
         self.info = {}
 
         self.pcap_file = pcap_file
@@ -55,17 +58,46 @@ class BGPProcessing:
 
         return layers
 
-    # Inspect packet by packet while:
-    #   - removing updates/withdrawals with no previously receive OPEN message
-    #   - for we don't support TCP reassembly: just keep all packets...
-    #     --> for the anonymization feature this is required otherwise payload cannot be dissected...
-    #     --> we expect full complete bgp sessions to be in the pcap
-    #     --> should not be too hard to implement, as scapy already gives you Raw data
-    #   - adding some info to traffic-info.json
-    def inspect_and_cleanup(self, bgp_packets):
+    # TODO: modify this s.t. after OPEN MSG we have larger inter-packet delay!
+    def adjust_timestamps(self, packets):
+
         packets_new = []
 
-        for packet in bgp_packets:
+        reference_time = EDecimal(1672534800.000) # does this make sense?
+        
+        pkt_counter = 0
+        for pkt in packets:
+            pkt.time = reference_time + EDecimal(pkt_counter * self.inter_packet_delay)
+            packets_new.append(pkt)
+            pkt_counter += 1
+        
+        return PacketList(packets_new)
+
+    def register_bgp_open(self, ip_src, bgp_packet):
+        self.info[str(ip_src)]['bgp_version'] = bgp_packet[BGPOpen].version
+        self.info[str(ip_src)]['bgp_id'] = bgp_packet[BGPOpen].bgp_id
+        self.info[str(ip_src)]['as_number'] = bgp_packet[BGPOpen].my_as
+        self.info[str(ip_src)]['capabilities'] = [] 
+        self.info[str(ip_src)]['updates_counter'] = 0
+        self.info[str(ip_src)]['keepalives_counter'] = 0
+
+    def register_bgp_updates(self, ip_src, bgp_packet):
+      i = 1
+      while bgp_packet.getlayer(BGPUpdate, i):
+  
+          # Add/modify msg type counters
+          self.info[str(ip_src)]['updates_counter'] += 1
+          
+          i += 1
+
+    def bgp_session_info(self, packets):
+        for packet in packets:
+
+            bgp_packet = packet[TCP].payload
+
+            # TMP Get BGP Layers (helper for development)
+            #print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
+            #layers = self.__get_layers(bgp_packet, True)
 
             # Add ip_src to self.info dict
             if IP in packet:
@@ -76,50 +108,103 @@ class BGPProcessing:
             if str(ip_src) not in self.info.keys():
                 self.info[str(ip_src)] = {}
 
-            # Get BGP packet
-            bgp_payload = packet[TCP].payload
+            # BGP Open
+            if bgp_packet.haslayer(BGPOpen):
+                self.register_bgp_open(ip_src, bgp_packet)
 
-            # Decode BGP
-            #bgp_packet = 
+            # BGP Updates
+            if bgp_packet.haslayer(BGPUpdate):
+                self.register_bgp_updates(ip_src, bgp_packet)
 
-            #packet.show()
-            # TMP Get BGP Layers (helper for development)
-            #print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
-            #layers = self.__get_layers(bgp_payload, True)
+            # BGP Withdraw
+            if bgp_packet.haslayer(BGPKeepAlive):
+                self.info[str(ip_src)]['keepalives_counter'] += 1
 
-            #print("last incomplete layers", layers[-2])
-            #print(" --> bytes = ", len(layers[-2]))
 
-            packets_new.append(packet)
-        
-        return packets_new
-
-    # Quick & dirty reassembly of BGP packets
-    # Have a look at pynids or pyshark to reassemble the stream!
-    def fast_tcp_reassembly(self, packets):
+    # Apply more advanced filters if provided in proto selectors, such as:
+    # - bgp:type
+    def bgp_apply_additional_filters(self, packets):
         packets_new = []
 
+        # Generate filter from selectors
+        proto_filter = bgp_filter_generator(self.bgp_selectors)
+
         for packet in packets:
+            if proto_filter(packet):
+                packets_new.append(packet)
 
-            # Get BGP packet
-            bgp_packet = packet[TCP].payload
+        return PacketList(packets_new)
 
-# NOT WORKING SO FAR....
-#            i = 1
-#            while bgp_packet.getlayer("BGPHeader", i):
-#
-#                bgp_header = bgp_packet.getlayer("BGPHeader", i)
-#                if len(bgp_header) == bgp_header.len:
-#                    print(len(bgp_header))
-#                    print(bgp_header.len)
-#                    print("ok")
-#                
-#                i = i + 1
-
-            packets_new.append(packet)
+    # Quick & dirty payload reassembly of BGP sessions
+    #  --> no guarante of working in all scenarios!
+    def tcp_reassembly(self, packets):
         
-        return packets_new
+        packets_new = []
+        tcp_sessions = packets.sessions()
+        
+        # Process BGP sessions
+        for session_id, plist in tcp_sessions.items():
 
+            logging.debug(f"Reassembling TCP session [ID = {session_id}]")
+            #print(plist.summary())
+        
+            # Reassemble TCP session
+            for packet in plist:
+
+                # TMP Get BGP Layers (helper for development)
+                #print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
+                #layers = self.__get_layers(packet, True)
+
+                # Append payload to previous packet
+                if packet[TCP].payload.name == "Raw":
+
+                    print("PAYLOAD IS RAW --> appending to previous")
+
+                    # Append the Raw payload to the previous packet
+                    previous_raw = raw(packets_new[-1])
+                    reassembled_raw = previous_raw + raw(packet[TCP].payload)
+                    reassembled = Ether(reassembled_raw)
+
+                    # Adjust TCP header params
+                    reassembled[TCP].chksum = None
+                    if IP in packet:
+                        reassembled[IP].len += (packet[IP].len - 4*packet[IP].ihl - 4*packet[TCP].dataofs)
+                        reassembled[IP].chksum = None
+                    elif IPv6 in packet:
+                        reassembled[IPv6].plen += (packet[IPv6].plen - 4*packet[TCP].dataofs)
+
+                    packets_new[-1] = reassembled
+
+                else:
+                    packets_new.append(packet)
+                                    
+        return PacketList(packets_new)
+
+    # BGP session cleanup
+    # - discard all messages before OPEN is received
+    # - discard incomplete sessions (i.e. without any OPEN)
+    def bgp_session_cleanup(self, packets):
+        
+        packets_new = []
+        tcp_sessions = packets.sessions()
+        
+        # Process BGP sessions
+        for session_id, plist in tcp_sessions.items():
+
+            keep_session = False
+            for packet in plist:
+                bgp_packet = packet[TCP].payload
+
+                # Check if we have an OPEN message
+                if len(bgp_packet) >= 28 and raw(bgp_packet)[18] == 1: 
+                    keep_session = True
+                    packets_new.append(packet)
+                else:
+                    # Keep only packets after OPEN received
+                    if keep_session: packets_new.append(packet)
+
+        return PacketList(packets_new)
+        
 
     # Extract BGP packets with selectors
     def extract_bgp_packets(self, packets):
@@ -130,11 +215,10 @@ class BGPProcessing:
         proto_filter = filter_generator(self.bgp_selectors)
 
         for packet in packets:
-            
             if proto_filter(packet):
                 packets_new.append(packet)
 
-        return packets_new
+        return PacketList(packets_new)
 
     def start(self):
 
@@ -142,17 +226,29 @@ class BGPProcessing:
         packets = rdpcap(self.pcap_file)
         logging.info(f"Size of packets: {len(packets)}") 
 
-        # Extract IPFIX/NetFlow packets and defragment
+        # Extract IPFIX/NetFlow packets
         packets = self.extract_bgp_packets(packets)
         logging.debug(f"Size of BGP packets: {len(packets)}")
 
-        # BGP defragment/fix segment numbers etc.. (investigate howTO)
-        # --> reassembly bgp payloads s.t. updates are not cut in half between packets...
-        #packets = self.fast_tcp_reassembly(packets)
+        # BGP session cleanup
+        packets = self.bgp_session_cleanup(packets)
 
-        # Start processing
-        packets = self.inspect_and_cleanup(packets)
+        # TCP reassembly
+        # TODO: migliorare che ha dei problemi...
+        # --> idea, magari basta aggiungere il filtro per ffffff nel filter (provare...!)
+        #packets = self.tcp_reassembly(packets)
+
+        # Filter on additional parameters if necessary
+        #packets = self.bgp_apply_additional_filters(packets)
+
+        # Anonymize
+
+        # Adjust timestamps
+        packets = self.adjust_timestamps(packets)
+
+        # Get some info for self.info struct
+        # KEEP IN MIND: counter accounting is broken if reassembly disabled...
+        self.bgp_session_info(packets)
 
         logging.info(f"Size of BGP packets processed: {len(packets)}") 
-
         return [self.info, packets]
