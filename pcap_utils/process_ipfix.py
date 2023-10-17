@@ -14,10 +14,11 @@ from scapy.all import IP, IPv6, raw, rdpcap, EDecimal
 from scapy.layers.netflow import *
 
 # Internal Libraries
+from pcap_utils.scapy_helpers import get_layers
 from pcap_utils.filter import filter_generator
 
 class IpfixProcessing:
-    def __init__(self, pcap_file, ipfix_selectors, inter_packet_delay, random_seed):
+    def __init__(self, pcap_file, ipfix_selectors):
 
         #   "ip_src": {
         #       "IPFIX version": {
@@ -31,40 +32,48 @@ class IpfixProcessing:
 
         self.pcap_file = pcap_file
         self.ipfix_selectors = ipfix_selectors
-        self.inter_packet_delay = inter_packet_delay
-        self.random_seed = random_seed
-    
-    # Scapy Helpers
-    def __get_layers(self, packet, do_print=False):
-        layers = []
-        counter = 0
-        while True:
-            layer = packet.getlayer(counter)
-            if layer is None:
-                break
 
-            layers.append(layer)
+        self.packets = self.__extract_and_defrag_ipfix_packets(pcap_file)
 
-            if do_print:
-                print(layer)
+    def __extract_and_defrag_ipfix_packets(self, pcap_file):
+        # Extract IPFIX/NetFlow packets with filter selectors
 
-            counter += 1
-        return layers
+        # Load pcap in memory
+        packets = rdpcap(pcap_file)
+        logging.info(f"Size of packets: {len(packets)}") 
+
+        packets_new = []
+
+        # Generate filter from selectors
+        logging.debug(f"ipfix_selectors: {self.ipfix_selectors}")
+        proto_filter = filter_generator(self.ipfix_selectors)
+
+        for packet in packets:
+            
+            if proto_filter(packet):
+                packets_new.append(packet)
+        
+        logging.debug(f"Size of filtered packets [IPFIX selector]: {len(packets_new)}")
+
+        packets_new = netflowv9_defragment(packets_new)
+        logging.debug(f"Size of defragmented ipfix packets: {len(packets_new)}")
+        
+        return packets_new
 
     # TODO: modify this s.t. we have higher delay between template & data
-    def adjust_timestamps(self, packets):
+    def adjust_timestamps(self, inter_packet_delay):
 
         packets_new = []
 
         reference_time = EDecimal(1672534800.000) # does this make sense?
         
         pkt_counter = 0
-        for pkt in packets:
-            pkt.time = reference_time + EDecimal(pkt_counter * self.inter_packet_delay)
+        for pkt in self.packets:
+            pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
             packets_new.append(pkt)
             pkt_counter += 1
         
-        return PacketList(packets_new)
+        self.packets = packets_new
 
     # Add some info to self.info dict for v5 records
     def register_v5_info(self, ip_src, ipfix_packet):
@@ -258,10 +267,10 @@ class IpfixProcessing:
     # Inspect packet by packet while:
     #   - removing data packets with no previously seen matching template
     #   - adding some info to traffic-info.json
-    def inspect_and_cleanup(self, packets):
+    def inspect_and_cleanup(self):
         packets_new = []
 
-        for packet in packets:
+        for packet in self.packets:
 
             # Add ip_src to self.info dict
             if IP in packet:
@@ -279,50 +288,23 @@ class IpfixProcessing:
             ipfix_packet = NetflowHeader(raw(ipfix_payload))
 
             #ipfix_packet.show()
-            # TMP Get IPFIX/NetFlow Layers (helper for development)
-            #print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
-            #self.__get_layers(ipfix_packet, True)
+            #get_layers(ipfix_packet, True)
 
             if self.ipfix_custom_checks(ip_src, ipfix_packet):
                 packets_new.append(packet)
         
-        return packets_new
+        self.packets = packets_new
 
-    # Extract IPFIX/NetFlow packets with selectors
-    def extract_ipfix_packets(self, packets):
-        packets_new = []
+    def prep_for_repro(self, inter_packet_delay=0.001, random_seed=0):
 
-        # Generate filter from selectors
-        logging.debug(f"ipfix_selectors: {self.ipfix_selectors}")
-        proto_filter = filter_generator(self.ipfix_selectors)
+        # Gather Info and cleanup
+        self.inspect_and_cleanup()
 
-        for packet in packets:
-            
-            if proto_filter(packet):
-                packets_new.append(packet)
-
-        return packets_new
-
-    def start(self):
-
-        # Load pcap in memory
-        packets = rdpcap(self.pcap_file)
-        logging.info(f"Size of packets: {len(packets)}") 
-
-        # Extract IPFIX/NetFlow packets and defragment
-        packets = self.extract_ipfix_packets(packets)
-        logging.debug(f"Size of ipfix packets: {len(packets)}")
-        packets = netflowv9_defragment(packets)
-        logging.debug(f"Size of ipfix packets defragmented: {len(packets)}")
-
-        # Start processing
-        packets = self.inspect_and_cleanup(packets)
-
-        # Anonymize
+        # Anonymize 
 
         # Adjust timestamps
-        packets = self.adjust_timestamps(packets)
+        self.adjust_timestamps(inter_packet_delay)
 
-        logging.info(f"Size of ipfix packets processed: {len(packets)}")
-        return [self.info, packets]
+        logging.info(f"Size of processed IPFIX/NFv9 packets: {len(self.packets)}")
+        return [self.info, self.packets]
 

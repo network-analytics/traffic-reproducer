@@ -63,20 +63,21 @@ class PcapProcessing:
     def process_ipfix(self):
         logging.info("Processing IPFIX...")
         ipfix_p = IpfixProcessing(self.config['pcap'], 
-                                  self.config['ipfix']['select'],
-                                  self.inter_packet_delay, 
-                                  self.random_seed)
-        [info, packets] = ipfix_p.start()
+                                  self.config['ipfix']['select'])
+
+        [info, packets] = ipfix_p.prep_for_repro(self.inter_packet_delay, 
+                                                 self.random_seed)
+                                                 
         self.out_info_dict["IPFIX/NetFlow Information"] = info
         return packets
 
     def process_bgp(self):
         logging.info("Processing BGP...")
-        bgp_p = BGPProcessing(self.config['pcap'], 
-                              self.config['bgp']['select'],
-                              self.inter_packet_delay, 
-                              self.random_seed)
-        [info, packets] = bgp_p.start()
+        bgp_p = BGPProcessing(self.config['pcap'], self.config['bgp']['select'])
+
+        [info, packets] = bgp_p.prep_for_repro(self.inter_packet_delay, 
+                                               self.random_seed)
+
         self.out_info_dict["BGP Information"] = info
         return packets
 

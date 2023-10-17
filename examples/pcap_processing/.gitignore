@@ -1,8 +1,10 @@
 prod-ipfix-anonymize.yml
 hcc-pe-28-02.yml
 daisy44.yml
+daisy64.yml
 titan-des01.yml
 pcaps/hcc-pe-28-02*
 pcaps/prod-ipfix-anonymize*
 pcaps/daisy44*
+pcaps/daisy64*
 pcaps/titan-des01*

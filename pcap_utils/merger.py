@@ -10,8 +10,3 @@
 #  --> quindi questa funzione deve fare il merge aggiustando i timestamps ma mantenendo invariati gli inter-packet delays! --> modifica solo inter protocol delays...
 def merge_and_adjust_timestamps(packets_list):
     return
-
-
-# Simply merge multiple scapy plists (maybe not even needed, we probably just can append the plists...)
-def merge(packets_list):
-    return
