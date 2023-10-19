@@ -28,7 +28,7 @@ def get_layers(packet, do_print=False):
 
     return layers
 
-def tcp_fragment(packets):
+def tcp_fragment(packets, tcp_port):
     # Reconstruct packets (regenerate Ether/IP/TCP headers)
     packets_new = []
 
@@ -65,13 +65,13 @@ def tcp_fragment(packets):
                 if IP in packet:
                     ether_frame = Ether() /\
                                   IP(src=ip_src, dst=ip_dst) /\
-                                  TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=179) /\
+                                  TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                                   Raw(load=raw_payload)
 
                 elif IPv6 in packet:
                     ether_frame = Ether() /\
                                   IPv6(src=ip_src, dst=ip_dst) /\
-                                  TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=179) /\
+                                  TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                                   Raw(load=raw_payload)
 
                 next_tcp_seq_nr += tcp_payload_size

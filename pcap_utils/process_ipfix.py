@@ -144,7 +144,7 @@ class IpfixProcessing:
             # Gather option template fields summary
             scopes = ipfix_packet.getlayer(NetflowOptionsFlowsetV9, i).scopes
             options = ipfix_packet.getlayer(NetflowOptionsFlowsetV9, i).options
-        
+
             # Add some information to self.info dict
             ipfix_version = "Version " + str(ipfix_packet.version)
             if ipfix_version not in self.info[ip_src].keys():
@@ -203,9 +203,16 @@ class IpfixProcessing:
                                                                        "template_options_count": len(options),
                                                                        "data_flowset_counter": 0}
 
+            # Detect if it is a sampling options, and if yes gather some info
+            for option in options: # TODO check also scopes (maybe some of that is in a scope field)
+                if option.optionFieldType in [34, 48, 305, 309]:
+                    self.info[ip_src][ipfix_version][SourceID_str][template]['option_description'] = "sampling"
+
             i = i + 1
 
     def template_for_data_packet_exists(self, ip_src, ipfix_packet):
+
+        #ipfix_packet.show()
 
         if ipfix_packet.haslayer(NetflowHeaderV9):
             SourceID = ipfix_packet.SourceID
@@ -232,6 +239,10 @@ class IpfixProcessing:
   
             # Adjust counter
             self.info[ip_src][ipfix_version][SourceID_str][template]["data_flowset_counter"] += 1
+
+            # Add sampling info if this is is sampling option data (TODO: if needed decode sampling option data)
+            #if 'option_description' in self.info[ip_src][ipfix_version][SourceID_str][template].keys():
+            #    get_layers(ipfix_packet, True)
         
             i += 1
         

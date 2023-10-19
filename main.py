@@ -38,7 +38,7 @@ def parse_args():
         type=pathlib.Path,
         dest='cfg',
         required=True,
-        help="YAML configuration file path \n  --> set IPs and other parameters, look at examples folder for some sample configs",
+        help="YAML configuration file path \n  --> set IPs and other parameters for reproduction, look at examples folder for some sample configs",
     )
 
     parser.add_argument(
@@ -59,8 +59,8 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-p', '--pcap_processing',
-        help="Perform pcap pre-processing without reproducing. Requires pcap_processing entry in the config file.",
+        '-p', '--pcap-proc',
+        help="Enable pcap pre-processing before reproducing \n  --> can also be used as standalone feature (pre-process and produce output pcap without reproducing) \n  --> requires pcap_processing entry in the config file, look at examples folder for some sample configs",
         action="store_const",
         dest="pcap_processing",
         const=True,
@@ -69,7 +69,7 @@ def parse_args():
 
     parser.add_argument(
         '--no-sync',
-        help="Disable IPFIX bucket sync to the next full minute. Also configurable through the config file [args OR config]",
+        help="Disable IPFIX bucket synchronization to the next full minute \n  --> also configurable through the config file [args OR config]",
         action="store_const",
         dest="nosync",
         const=True,
@@ -78,7 +78,7 @@ def parse_args():
 
     parser.add_argument(
         '--keep-open',
-        help="Do not close the TCP connection when finished replaying pcap. Also configurable through the config file [args OR config]",
+        help="Keep the TCP connections open when finishing the pcap reproduction \n  --> also configurable through the config file [args OR config]",
         action="store_const",
         dest="keep_open",
         const=True,

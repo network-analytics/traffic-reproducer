@@ -9,7 +9,9 @@ Given a PCAP and a configuration file, this scapy-based tool can reproduce traff
 - Simulates multiple clients via multiple configurable IPs
 - Support for VRF in linux
 - Easy integration with new protocols
-- [In Development] Tools for generating and processing pcap files so that they're ready to be reproduced
+- Extract clean IPFIX/BGP/BMP sessions from raw pcap captures before reproducing
+- Provide json summary of pcap content (protocol session details)
+- [Vision] Packet generators for new protocols
 
 ## Installation
 
@@ -24,22 +26,25 @@ pip install -r requiremements.txt
 
 ```sh
 > python main.py -h
-usage: main.py [-h] -t CFG [-v] [-d] [--no-sync] [--keep-open]
+usage: main.py [-h] -t CFG [-v] [-d] [-p] [--no-sync] [--keep-open]
 
 Network Telemetry Traffic Reproducer: reproduce IPFIX/NetFlow, BGP and BMP Traffic based on pcap file.
 
 options:
   -h, --help          show this help message and exit
   -t CFG, --test CFG  YAML configuration file path
-                        --> set IPs and other parameters, look at examples folder for some sample configs
+                        --> set IPs and other parameters for reproduction, look at examples folder for some sample configs
   -v, --verbose       Set log level to INFO
-                        --> default=WARNING, unless -d/--debug flag is used
+                        --> default log level is WARNING, unless -d/--debug flag is used
   -d, --debug         Set log level to DEBUG
-                        --> default=WARNING, unless -v/--verbose flag is used
-  --no-sync           Disable IPFIX bucket sync to the next full minute
-                        --> default=False, argument also configurable through the config file [args OR config]
-  --keep-open         Do not close the TCP connection when finished replaying pcap
-                        --> default=False, argument also configurable through the config file [args OR config]
+                        --> default log level is WARNING, unless -v/--verbose flag is used
+  -p, --pcap-proc     Enable pcap pre-processing before reproducing
+                        --> can also be used as standalone feature (pre-process and produce output pcap without reproducing)
+                        --> requires pcap_processing entry in the config file, look at examples folder for some sample configs
+  --no-sync           Disable IPFIX bucket synchronization to the next full minute
+                        --> also configurable through the config file [args OR config]
+  --keep-open         Keep the TCP connections open when finishing the pcap reproduction
+                        --> also configurable through the config file [args OR config]
 
 -----------------------
 ```

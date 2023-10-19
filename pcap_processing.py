@@ -12,7 +12,6 @@ import os
 import json
 from random import randint, seed
 from time import time, sleep
-from prettytable import PrettyTable
 from scapy.utils import wrpcap
 
 # Internal Libraries

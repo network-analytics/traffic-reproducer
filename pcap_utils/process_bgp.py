@@ -84,7 +84,10 @@ class BGPProcessing:
                     packets_new.append(packet)
                 else:
                     # Keep only packets after OPEN received
-                    if keep_session and len(bgp_packet) > 19: 
+                    # TODO: find out better way to remove TCP packets
+                    #       not related to bgp (as tcp payload to reassemble
+                    #       for bgp packet could be < 18 ? --> not sure)
+                    if keep_session and len(bgp_packet) > 18: 
                         packets_new.append(packet)
 
         return PacketList(packets_new)
@@ -105,11 +108,14 @@ class BGPProcessing:
         return PacketList(bgp_packets_new)
 
     def __bgp_defragment(self, packets):
-        # Quick & dirty BGP message defragment (TCP reassembly)
-        #  --> no guarante of working in all scenarios!
+        # Quick & dirty BGP message defragment (not thoroughly tested)
+        # TODO (if we have time): we need to check size of all BGP messages vs.
+        #                         the respective payload to see if messages are 
+        #                         complete or we should discard them...
 
         packets_new = []
         tcp_sessions = packets.sessions()
+        tcp_port = self.bgp_selectors['tcp']['dport']
         
         # Process all BGP sessions
         for session_id, plist in tcp_sessions.items():
@@ -160,13 +166,13 @@ class BGPProcessing:
                 if IP in first_pkt:
                     reassembled_ether = Ether() /\
                                         IP(src=ip_src, dst=ip_dst) /\
-                                        TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=179) /\
+                                        TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                                         Raw(load=raw(bgp_packet))
                     
                 elif IPv6 in  first_pkt:
                     reassembled_ether = Ether() /\
                                         IPv6(src=ip_src, dst=ip_dst) /\
-                                        TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=179) /\
+                                        TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                                         Raw(load=raw(bgp_packet))
                 
                 next_tcp_seq_nr += tcp_payload_size
@@ -226,7 +232,8 @@ class BGPProcessing:
 
             cap_code = bgp_packet.getlayer(BGPCapGeneric, i).code
 
-            if cap_code == 5: self.info[str(ip_src)]['capabilities'].append("BGPCapExtendedNHEnconding")
+            # TODO: implement class for this capability and contribute it to scapy
+            if cap_code == 5: self.info[str(ip_src)]['capabilities'].append("BGPCapExtendedNHEnconding") 
             else: self.info[str(ip_src)]['capabilities'].append("BGPCapGeneric_" + str(cap_code))
             i += 1
 
@@ -277,7 +284,7 @@ class BGPProcessing:
         self.bgp_session_info()
 
         # Reconstruct TCP segments s.t. MTU<1500
-        self.packets = tcp_fragment(self.packets)
+        self.packets = tcp_fragment(self.packets, self.bgp_selectors['tcp']['dport'])
 
         # Adjust timestamps
         self.adjust_timestamps(inter_packet_delay)
