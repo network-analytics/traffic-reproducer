@@ -189,10 +189,42 @@ class BGPProcessing:
         self.packets = packets_new
 
     def register_bgp_open(self, ip_src, bgp_packet):
+
+        #get_layers(bgp_packet, True)
+
         self.info[str(ip_src)]['bgp_version'] = bgp_packet[BGPOpen].version
         self.info[str(ip_src)]['bgp_id'] = bgp_packet[BGPOpen].bgp_id
         self.info[str(ip_src)]['as_number'] = bgp_packet[BGPOpen].my_as
+
+        # Process some of the Capabilities (BGP Option Params)
         self.info[str(ip_src)]['capabilities'] = [] 
+
+        if bgp_packet.getlayer(BGPCapFourBytesASN):
+            self.info[str(ip_src)]['capabilities'].append("BGPCapFourBytesASN")
+
+        if bgp_packet.getlayer(BGPCapGracefulRestart):
+            self.info[str(ip_src)]['capabilities'].append("BGPCapGracefulRestart")  
+
+        if bgp_packet.getlayer(BGPCapORF):
+            self.info[str(ip_src)]['capabilities'].append("BGPCapORF")
+
+        i = 1
+        while bgp_packet.getlayer(BGPCapMultiprotocol, i):
+
+            afi = bgp_packet.getlayer(BGPCapMultiprotocol, i).afi
+            safi = bgp_packet.getlayer(BGPCapMultiprotocol, i).safi
+            self.info[str(ip_src)]['capabilities'].append("BGPCapMultiprotocol: AFI_" + str(afi) + " + SAFI_" + str(safi))
+            i += 1
+
+        i = 1
+        while bgp_packet.getlayer(BGPCapGeneric, i):
+
+            cap_code = bgp_packet.getlayer(BGPCapGeneric, i).code
+
+            if cap_code == 5: self.info[str(ip_src)]['capabilities'].append("BGPCapExtendedNHEnconding")
+            else: self.info[str(ip_src)]['capabilities'].append("BGPCapGeneric_" + str(cap_code))
+            i += 1
+
         self.info[str(ip_src)]['updates_counter'] = 0
         self.info[str(ip_src)]['keepalives_counter'] = 0
 
@@ -217,7 +249,6 @@ class BGPProcessing:
                 self.info[str(ip_src)] = {}
 
             bgp_packet = BGPHeader(raw(packet[TCP].payload))
-            #layers = get_layers(bgp_packet, True)
 
             # BGP Open
             if bgp_packet.haslayer(BGPOpen):
@@ -240,10 +271,7 @@ class BGPProcessing:
         # Get some info for self.info struct
         self.bgp_session_info()
 
-        # Reconstruct TCP segments with MTU<1500 (TODO)
-        # TODO: this is required as we cannot have packets with more that 65536bytes (TCP limitation)
-        #       --> this we could define as general function
-        #           in scapy_helpers if we need it
+        # Reconstruct TCP segments s.t. MTU<1500
         self.packets = tcp_fragment(self.packets)
 
         # Adjust timestamps
