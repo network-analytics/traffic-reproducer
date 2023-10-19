@@ -64,6 +64,7 @@ def filter_generator(flt):
             # TODO: also check if payload contains BGP marker ffff, otherwise discard! (don't know if strictly needed?)
             #    --> this put somewhere else as well
             #    --> this is important since sometimes we can have crap stuff...
+            #    --> This cannot be done when we have fragmented bgp packets!!
 
         return True
     return F

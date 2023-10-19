@@ -10,7 +10,7 @@ import logging
 import pathlib
 import os
 from time import time, sleep
-from scapy.all import IP, IPv6, raw, rdpcap, EDecimal
+from scapy.all import IP, IPv6, UDP, raw, rdpcap, EDecimal
 from scapy.layers.netflow import *
 
 # Internal Libraries

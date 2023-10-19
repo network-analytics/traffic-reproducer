@@ -106,8 +106,6 @@ class PcapProcessing:
         for proto in [proto for proto in self.config if proto in supported_protos]:
             packets += self.process_proto(proto)
 
-        
-
         # Merge the scapy packet object in the order given by selectors (with some default waiting times between the protocols)
         # --> we can do it in the for loop above directly
         # --> with some custom delay (e.g. if proto=bgp --> add 1s delay to the time s.t. next packet will be added after 1s)
@@ -124,9 +122,9 @@ class PcapProcessing:
             outfile.write(out_info_json)
 
         logging.info("Pcap processing successful!")
-        logging.info(f"Size of packets processed: {len(packets)}")
-        logging.info(f"Pcap file location:            {self.out_pcap}") 
-        logging.info(f"Config file location:          {self.out_config}") 
-        logging.info(f"Info file location:            {self.out_info}") 
+        logging.info(f"Size of processed packet (all protocols):  {len(packets)}")
+        logging.info(f"Pcap file location:                        {self.out_pcap}") 
+        logging.info(f"Config file location:                      {self.out_config}") 
+        logging.info(f"Info file location:                        {self.out_info}") 
 
         return self.config

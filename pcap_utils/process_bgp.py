@@ -10,13 +10,13 @@ import logging
 import pathlib
 import os
 from time import time, sleep
-from scapy.all import Ether, IP, IPv6, Raw, raw, rdpcap, PacketList, EDecimal
+from scapy.all import Ether, IP, IPv6, TCP, Raw, raw, rdpcap, PacketList, EDecimal
 from scapy.contrib.bgp import *
 
 #BGPConf.use_2_bytes_asn = False
 
 # Internal Libraries
-from pcap_utils.scapy_helpers import get_layers
+from pcap_utils.scapy_helpers import get_layers, tcp_fragment
 from pcap_utils.filter import filter_generator, bgp_msg_filter_generator
 
 class BGPProcessing:
@@ -227,7 +227,7 @@ class BGPProcessing:
             if bgp_packet.haslayer(BGPUpdate):
                 self.register_bgp_updates(ip_src, bgp_packet)
 
-            # BGP Withdrawals
+            # BGP Keepalives
             if bgp_packet.haslayer(BGPKeepAlive):
                 self.info[str(ip_src)]['keepalives_counter'] += 1
 
@@ -241,10 +241,10 @@ class BGPProcessing:
         self.bgp_session_info()
 
         # Reconstruct TCP segments with MTU<1500 (TODO)
-        # TODO: determine if this is needed or not
+        # TODO: this is required as we cannot have packets with more that 65536bytes (TCP limitation)
         #       --> this we could define as general function
         #           in scapy_helpers if we need it
-        #self.tcp_fragment()
+        self.packets = tcp_fragment(self.packets)
 
         # Adjust timestamps
         self.adjust_timestamps(inter_packet_delay)
