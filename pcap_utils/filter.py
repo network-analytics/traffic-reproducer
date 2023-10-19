@@ -47,25 +47,6 @@ def filter_generator(flt):
                 if getattr(NetflowHeader(raw(pkt[UDP].payload)), f) not in flt['cflow'][f]:
                     return False
 
-        if 'bgp' in flt:
-            if TCP not in pkt:
-                return False
-            if IP not in pkt and IPv6 not in pkt:
-                return False
-            elif IP in pkt:
-                #print("tcp payload len: ", pkt[IP].len - 4*pkt[IP].ihl - 4*pkt[TCP].dataofs)
-                # too small, hence discard --> TODO: move this filtering somewhere else since we need to execute it all the time
-                #   and not only when bgp is defined in the selectors!!!!!
-                if pkt[IP].len - 4*pkt[IP].ihl - 4*pkt[TCP].dataofs < 19: 
-                    return False
-            elif IPv6 in pkt:
-                if pkt[IPv6].plen - 4*pkt[TCP].dataofs < 19: # too small
-                    return False
-            # TODO: also check if payload contains BGP marker ffff, otherwise discard! (don't know if strictly needed?)
-            #    --> this put somewhere else as well
-            #    --> this is important since sometimes we can have crap stuff...
-            #    --> This cannot be done when we have fragmented bgp packets!!
-
         return True
     return F
 

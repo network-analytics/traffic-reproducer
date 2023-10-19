@@ -19,7 +19,7 @@ from scapy.utils import wrpcap
 from proto import Proto
 from pcap_utils.process_ipfix import IpfixProcessing
 from pcap_utils.process_bgp import BGPProcessing
-from pcap_utils.merger import merge_and_adjust_timestamps
+from pcap_utils.scapy_helpers import merge_and_adjust_timestamps
 
 class PcapProcessing:
     # Set inter packet and inter protocols delays according to config
@@ -83,7 +83,13 @@ class PcapProcessing:
 
     def process_bmp(self):
         logging.info("Processing BMP...")
-        return []
+        bmp_p = BMPProcessing(self.config['pcap'], self.config['bmp']['select'])
+
+        [info, packets] = bmp_p.prep_for_repro(self.inter_packet_delay, 
+                                               self.random_seed)
+
+        self.out_info_dict["BMP Information"] = info
+        return packets
 
     def process_proto(self, proto_name):
         if proto_name == 'ipfix': return self.process_ipfix()
@@ -115,6 +121,8 @@ class PcapProcessing:
 
         # Modify self.config [remove unused entries, add/modify needed ones, then publish it so self.out_config (dict to yml conversion)]
         # --> self.config will match (and used to produce) the traffic-reproducer.yml to be used for reproducing the processed pcap
+        # --> only include the tcp/udp port selector there, as we already filtered on everything else (but we still need a main proto distinguisher for
+        #     the reproducer to distinguish traffic from other protos!)
 
         # Export and log out_info_json
         out_info_json = json.dumps(self.out_info_dict, indent = 3)

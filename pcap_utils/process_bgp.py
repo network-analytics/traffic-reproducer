@@ -67,13 +67,14 @@ class BGPProcessing:
         # Select clean BGP sessions only
         #  --> discard all messages before OPEN is received
         #  --> discard incomplete sessions (i.e. without any OPEN)
+        #  --> discard too small packets (i.e. packets smaller than 19bytes)
 
         packets_new = []
         tcp_sessions = packets.sessions()
         
         for session_id, plist in tcp_sessions.items():
-
             keep_session = False
+            
             for packet in plist:
                 bgp_packet = packet[TCP].payload
 
@@ -83,7 +84,8 @@ class BGPProcessing:
                     packets_new.append(packet)
                 else:
                     # Keep only packets after OPEN received
-                    if keep_session: packets_new.append(packet)
+                    if keep_session and len(bgp_packet) > 19: 
+                        packets_new.append(packet)
 
         return PacketList(packets_new)
 
@@ -173,6 +175,9 @@ class BGPProcessing:
         logging.debug(f"Size of defragmented BGP packets: {len(packets_new)}")
 
         return PacketList(packets_new)
+
+    # Export processed BGP packets in pcap file
+    #def write_pcap(self, output_pcap):
 
     def adjust_timestamps(self, inter_packet_delay):
         # TODO: modify this s.t. after OPEN MSG we have larger inter-packet delay!

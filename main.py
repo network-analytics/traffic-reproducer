@@ -145,7 +145,6 @@ def sleep_between_pkts(packet, real_start_time, pcap_start_time, time_factor):
 
     return sleep_time
 
-
 def main():
     # parse arguments
     args = parse_args()

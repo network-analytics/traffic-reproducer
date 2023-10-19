@@ -82,3 +82,8 @@ def tcp_fragment(packets):
     logging.debug(f"Size of fragmented packets: {len(packets_new)}")
 
     return packets_new
+
+# Fare il merge aggiustando i timestamps ma mantenendo invariati gli inter-packet delays (perché quelli sono già aggiustati dalle singole 
+#  processing functions! --> modifica solo inter protocol delays...
+def merge_and_adjust_timestamps(packets):
+    return packets
