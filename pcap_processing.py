@@ -29,7 +29,7 @@ class PcapProcessing:
         if 'inter_protocol_delay' in self.config['pcap_processing']:
             self.inter_protocol_delay = self.config['pcap_processing']['inter_protocol_delay']
 
-    # Set output filepaths based on input pcap name
+    # Set output filepaths based on input pcap name (or if provided from output_folder config key)
     def __set_output_filepaths(self):
         if 'output_folder' in self.config['pcap_processing']:
             self.out_folder = self.config['pcap_processing']['output_folder']
@@ -104,6 +104,8 @@ class PcapProcessing:
             os.makedirs(self.out_folder)
 
         # TODO: if multiple pcap files are provided as input --> merge here...
+        # --> better not, as otherwise we need to change also utils...
+        # --> provide an additional merger script in pcap utils...
 
         # Process protocols following the order provided in config file
         supported_protos = [e.value for e in Proto]

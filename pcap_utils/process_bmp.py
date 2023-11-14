@@ -11,6 +11,8 @@ import pathlib
 import os
 from time import time, sleep
 from scapy.all import Ether, IP, IPv6, TCP, Raw, raw, rdpcap, PacketList, EDecimal
+from scapy.layers.l2 import *
+from scapy.contrib.mpls import *
 
 # Internal Libraries
 from pcap_utils.scapy_helpers import get_layers, tcp_fragment

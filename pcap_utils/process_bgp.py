@@ -12,6 +12,8 @@ import os
 from time import time, sleep
 from scapy.all import Ether, IP, IPv6, TCP, Raw, raw, rdpcap, PacketList, EDecimal
 from scapy.contrib.bgp import *
+from scapy.layers.l2 import *
+from scapy.contrib.mpls import *
 
 #BGPConf.use_2_bytes_asn = False
 
