@@ -166,6 +166,11 @@ class IpfixProcessing:
                                                                        "template_options_count": len(options),
                                                                        "data_flowset_counter": 0}
 
+            # Detect if it is a sampling options, and if yes gather some info
+            for option in options: # TODO check also scopes (maybe some of that is in a scope field)
+                if option.optionFieldType in [34, 48, 305, 309]:
+                    self.info[ip_src][ipfix_version][SourceID_str][template]['option_description'] = "sampling"
+
             i = i + 1
 
     # Check if option template [v10] is there already, otherwise register

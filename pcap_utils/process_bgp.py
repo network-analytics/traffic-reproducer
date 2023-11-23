@@ -11,11 +11,12 @@ import pathlib
 import os
 from time import time, sleep
 from scapy.all import Ether, IP, IPv6, TCP, Raw, raw, rdpcap, PacketList, EDecimal
-from scapy.contrib.bgp import *
 from scapy.layers.l2 import *
 from scapy.contrib.mpls import *
+from scapy.contrib.bgp import *
 
-#BGPConf.use_2_bytes_asn = False
+import scapy.contrib.bgp
+scapy.contrib.bgp.bgp_module_conf.use_2_bytes_asn = False
 
 # Internal Libraries
 from pcap_utils.scapy_helpers import get_layers, tcp_fragment
@@ -26,7 +27,7 @@ class BGPProcessing:
     def __init__(self, pcap_file, bgp_selectors):
 
         #   "ip_src": { ...
-        #         "bgp_version"
+        #         "bgp_version": 
         #         "bgp_id":
         #         "as_number": 
         #         "capabilities": []
@@ -124,7 +125,7 @@ class BGPProcessing:
 
             bgp_packets = []
             logging.debug(f"Reassembling BGP from TCP session [ID = {session_id}]")
-            #print(plist.summary())
+            print(plist.summary())
 
             # Get IP addresses to later reconstruct packet headers
             first_pkt = plist[0]
@@ -184,7 +185,7 @@ class BGPProcessing:
 
         return PacketList(packets_new)
 
-    # Export processed BGP packets in pcap file
+    # Export processed BGP packets in pcap file # TODO: do this s.t. can be used standalone
     #def write_pcap(self, output_pcap):
 
     def adjust_timestamps(self, inter_packet_delay):

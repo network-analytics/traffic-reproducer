@@ -18,6 +18,7 @@ from scapy.utils import wrpcap
 from proto import Proto
 from pcap_utils.process_ipfix import IpfixProcessing
 from pcap_utils.process_bgp import BGPProcessing
+from pcap_utils.process_bmp import BMPProcessing
 from pcap_utils.scapy_helpers import merge_and_adjust_timestamps
 
 class PcapProcessing:
