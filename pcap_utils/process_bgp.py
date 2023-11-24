@@ -98,6 +98,8 @@ class BGPProcessing:
     def __bgp_apply_additional_filters(self, bgp_packets):
         # Apply more advanced filters if provided in proto selectors, 
         # i.e. BGP msg type
+        # TODO: this only applies at the first header (i.e. we assume messages of different type are not fragmented
+        #       by the tcp implementation) -> I don't know whether this is always true...
 
         bgp_packets_new = []
 

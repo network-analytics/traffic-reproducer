@@ -16,7 +16,7 @@ from scapy.contrib.mpls import *
 
 # Internal Libraries
 from pcap_utils.scapy_helpers import get_layers, tcp_fragment, tcp_build
-from pcap_utils.filter import filter_generator
+from pcap_utils.filter import filter_generator, bmp_msg_filter_generator
 from pcap_utils.bmp_scapy.bmp import *
 
 # Class for storing BMP packets belonging to a TCP session
@@ -57,7 +57,7 @@ class BMPProcessing:
         self.__bmp_sessions_defragment(packets)   
         
         # Some more filtering on BMP layers
-        #self.__bmp_apply_additional_filters()
+        self.__bmp_apply_additional_filters()
 
 
 
@@ -157,7 +157,7 @@ class BMPProcessing:
             if reassembled_raw:
                 bmp_packets_temp.append(BMP(reassembled_raw))
 
-            # Split up and get single BMP messages # TODO: optimize by only decoding the first 6 bytes before of the raw blob to check the length!!
+            # Split up and get single BMP messages
             for bmp_packet in bmp_packets_temp:
 
                 raw_bmp_packet = raw(bmp_packet)
@@ -176,16 +176,25 @@ class BMPProcessing:
                     
             self.bmp_sessions.append(bmp_session)
 
-    # TODO: modify s.t. this uses self.bmp_packets
-    #def __bmp_apply_additional_filters(self):
+    def __bmp_apply_additional_filters(self):
         # Apply more advanced filters if provided in proto selectors, 
         # i.e. BMP msg type
 
         # Generate filter from selectors
-        #proto_filter = bmp_msg_filter_generator(self.bmp_selectors)
+        proto_filter = bmp_msg_filter_generator(self.bmp_selectors)
+
+        for i in range(len(self.bmp_sessions)):
+
+            bmp_packets_new = []
+            for bmp_packet in self.bmp_sessions[i].bmp_packets:
+                if proto_filter(bmp_packet):
+                    bmp_packets_new.append(bmp_packet)
+            
+            self.bmp_sessions[i].bmp_packets = bmp_packets_new
 
     def adjust_timestamps(self, packets, inter_packet_delay):
         # TODO: modify this s.t. after INIT & OPEN MSG (PEER UPs) we have larger inter-packet delay!
+        # Do we really need this?? Let's investigate, but for now don't do it...
 
         packets_new = []
         reference_time = EDecimal(1672534800.000) # TODO: does this make sense?
@@ -202,6 +211,7 @@ class BMPProcessing:
     def prep_for_repro(self, inter_packet_delay=0.001, random_seed=0):
 
         # Get some info for self.info struct
+        # TODO: implement this using self.bmp_sessions
         #self.bmp_session_info()
 
         # Reconstruct TCP segments s.t. MTU~=1500

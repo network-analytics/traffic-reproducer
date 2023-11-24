@@ -7,7 +7,8 @@
 # External Libraries
 from scapy.all import IP, IPv6, TCP, UDP, raw
 from scapy.layers.netflow import NetflowHeader
-from scapy.contrib.bgp import *
+from scapy.contrib.bgp import BGPHeader
+from pcap_utils.bmp_scapy.bmp import BMPHeader
 
 def filter_generator(flt):
     if flt is None:
@@ -51,7 +52,7 @@ def filter_generator(flt):
     return F
 
 # Additional BGP specific filters
-#  --> can be applied only for defragmented BGP sessions!
+#  --> can be applied only for deserialized BGP messages!
 def bgp_msg_filter_generator(flt):
     if flt is None:
         return None
@@ -61,6 +62,22 @@ def bgp_msg_filter_generator(flt):
           
             for f in flt['bgp']:
                 if getattr(BGPHeader(raw(pkt)), f) not in flt['bgp'][f]:
+                    return False
+
+        return True
+    return F
+
+# Additional BMP specific filters
+#  --> can be applied only on deserialized BMP messages!
+def bmp_msg_filter_generator(flt):
+    if flt is None:
+        return None
+
+    def F(pkt):
+        if 'bmp' in flt:
+          
+            for f in flt['bmp']:
+                if getattr(BMPHeader(raw(pkt)), f) not in flt['bmp'][f]:
                     return False
 
         return True
