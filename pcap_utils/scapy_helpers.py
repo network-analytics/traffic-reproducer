@@ -83,6 +83,71 @@ def tcp_fragment(packets, tcp_port):
 
     return packets_new
 
+def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port):
+    # Construct packets (generate Ether/IP/TCP headers based on input arguments)
+    # If we have payloads that are >1500 this function does not fragment
+    # --> if you want to make sure they're fragmented call tcp_fragment() after calling this
+    packets_new = []
+
+    prev_len = 0
+    prev_payload = b''
+    next_tcp_seq_nr = 1
+
+    for payload in payloads:
+        
+        raw_payload = raw(payload)
+        raw_len = len(raw_payload)
+
+        if raw_len + prev_len < 1440 or\
+           (prev_len == 0 and raw_len > 1440):
+
+            prev_payload += raw_payload
+            prev_len += raw_len
+
+        else:
+            # Build TCP packet for prev_payload
+            flg = 0x02 if next_tcp_seq_nr == 1 else 0x18   
+            
+            if ip_ver == 4:
+                ether_frame = Ether() /\
+                              IP(src=ip_src, dst=ip_dst) /\
+                              TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
+                              Raw(load=prev_payload)
+
+            elif ip_ver == 6:
+                ether_frame = Ether() /\
+                              IPv6(src=ip_src, dst=ip_dst) /\
+                              TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
+                              Raw(load=prev_payload)
+            
+            next_tcp_seq_nr += prev_len
+            packets_new.append(ether_frame)
+
+            # Reset prev_payload on current
+            prev_payload = raw_payload
+            prev_len = raw_len
+
+    # Build TCP for remaining prev_payload (if any)
+    if prev_len > 0:
+        flg = 0x02 if next_tcp_seq_nr == 1 else 0x18   
+            
+        if ip_ver == 4:          
+            ether_frame = Ether() /\
+                          IP(src=ip_src, dst=ip_dst) /\
+                          TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
+                          Raw(load=prev_payload)
+
+        elif ip_ver == 6:
+            ether_frame = Ether() /\
+                          IPv6(src=ip_src, dst=ip_dst) /\
+                          TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
+                          Raw(load=prev_payload)
+        
+        packets_new.append(ether_frame)
+
+    return packets_new
+
+
 # Fare il merge aggiustando i timestamps ma mantenendo invariati gli inter-packet delays (perché quelli sono già aggiustati dalle singole 
 #  processing functions! --> modifica solo inter protocol delays...
 def merge_and_adjust_timestamps(packets):
