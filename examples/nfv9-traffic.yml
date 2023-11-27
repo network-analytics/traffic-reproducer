@@ -18,7 +18,7 @@ network:
 
   interface: null                       # to use a VRF, give the vrf name
 
-ipfix:
+IPFIX:
   select:                               # select BGP packet in pcap based on the following two parameters. Use as "filter"
     udp:
       dport: 9991

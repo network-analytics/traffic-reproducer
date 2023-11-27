@@ -87,8 +87,10 @@ def tcp_fragment(packets, tcp_port):
 
 def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port, tcp_seq_nr=1):
     # Construct packets (generate Ether/IP/TCP headers based on input arguments)
-    # If we have payloads that are >1500 this function does not fragment
-    # --> if you want to make sure they're fragmented call tcp_fragment() after calling this
+    # This function will try to keep TCP packets len ~= 1500, but if there are single 
+    #    payloads that are >1500 this function does not fragment
+    #    --> If you want to make sure they're fragmented call tcp_fragment() after calling this
+    
     packets_new = []
     src_mac = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
                                            random.randint(0, 255),

@@ -18,7 +18,7 @@ network:
     
   interface: null                         # to use a VRF, give the vrf name
 
-bmp:
+BMP:
   select: 
     tcp:
       dport: 1790

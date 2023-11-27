@@ -1,0 +1,26 @@
+---
+pcap: examples/pcap_processing/ipfix-bmp.pcap
+
+pcap_processing:
+  exit: yes                
+  inter_packet_delay: 0.001
+  inter_protocol_delay: 1
+
+BMP:
+  select: 
+    ip:
+      src: 198.51.100.44
+    tcp:
+      dport: 1790
+    bmp: 
+      # 0:ROUTE_MONITORING 1:STATS 2:PEER_DOWN 3:PEER_UP 4:INIT 5:TERM 6:ROUTE_MIRRORING
+      type: [4, 3, 0]  
+
+IPFIX:
+  select:
+    ip:
+      src: 198.51.100.44
+    udp:
+      dport: 9992
+    cflow:
+      version: [9, 10]

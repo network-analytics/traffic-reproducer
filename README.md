@@ -11,7 +11,10 @@ Given a PCAP and a configuration file, this scapy-based tool can reproduce traff
 - Easy integration with new protocols
 - Extract clean IPFIX/BGP/BMP sessions from raw pcap captures before reproducing
 - Provide json summary of pcap content (protocol session details)
-- [Vision] Packet generators for new protocols
+
+## Feature Roadmap [Vision]
+- Pseudo-anonymization (ip, mac addresses)
+- Packet generators for new protocols
 
 ## Installation
 

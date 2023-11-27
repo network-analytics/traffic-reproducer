@@ -18,7 +18,7 @@ network:
     
   interface: null                         # to use a VRF, give the vrf name
 
-bgp:
+BGP:
   select: 
     tcp:
       dport: 179

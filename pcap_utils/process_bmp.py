@@ -38,7 +38,6 @@ class BMPProcessing:
         #       "BGP_peers": {"Peer_BGP_Id":
         #                                     { "bgp_version": 
         #                                       "as_number": 
-        #                                       "capabilities": []    
         #                                       "route_monitoring_counter":
         #                                       "stats_counter":    },
         #                        ... }
@@ -303,7 +302,7 @@ class BMPProcessing:
         
         return packets_new
 
-    def prep_for_repro(self, inter_packet_delay=0.001, random_seed=0):
+    def prep_for_repro(self, inter_packet_delay=0.001):
 
         # Get some info for self.info struct
         self.bmp_session_info()

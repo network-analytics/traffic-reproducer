@@ -4,7 +4,7 @@
 # Distributed under the MIT License (http://opensource.org/licenses/MIT)
 #
 
-# TODO: randomize src/dst mac like for BGP/BMP
+# TODO: randomize src/dst MAC like for BGP/BMP
 
 # External Libraries
 import sys
@@ -312,7 +312,7 @@ class IpfixProcessing:
         
         self.packets = packets_new
 
-    def prep_for_repro(self, inter_packet_delay=0.001, random_seed=0):
+    def prep_for_repro(self, inter_packet_delay=0.001):
 
         # Gather Info and cleanup
         self.inspect_and_cleanup()

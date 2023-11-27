@@ -7,6 +7,9 @@
 # TODO:
 # - write_pcap(self, output_pcap) function (s.t. this class can be used standalone...)
 # - pseudo anonymize support
+# - move this to an approach like process_bmp() where we gather single messages (otherwise
+#     filtering for msg_type might be broken if multiple bgp message types are sent in the
+#     same tcp segment...)
 
 # External Libraries
 import sys
@@ -131,7 +134,7 @@ class BGPProcessing:
 
             bgp_packets = []
             logging.debug(f"Reassembling BGP from TCP session [ID = {session_id}]")
-            print(plist.summary())
+            #print(plist.summary())
 
             # Get IP addresses to later reconstruct packet headers
             first_pkt = plist[0]
@@ -278,7 +281,7 @@ class BGPProcessing:
         
         self.packets = packets_new
 
-    def prep_for_repro(self, inter_packet_delay=0.001, random_seed=0):
+    def prep_for_repro(self, inter_packet_delay=0.001):
 
         # Anonymize data (TODO)
 

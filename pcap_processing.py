@@ -10,7 +10,6 @@ import logging
 import pathlib
 import os
 import json
-from random import randint, seed
 from time import time, sleep
 from scapy.utils import wrpcap
 
@@ -21,9 +20,21 @@ from pcap_utils.process_bgp import BGPProcessing
 from pcap_utils.process_bmp import BMPProcessing
 from pcap_utils.scapy_helpers import merge_and_adjust_timestamps
 
-# TODO: this does not make much sense as a class?
 
 class PcapProcessing:
+
+    def __init__(self, config):
+        self.out_info_dict = {}
+        self.config = config
+
+        # Defaults
+        self.inter_packet_delay = 0.001
+        self.inter_protocol_delay = 1
+        self.out_folder = os.path.splitext(self.config['pcap'])[0]
+
+        self.__set_delays()
+        self.__set_output_filepaths()
+
     # Set inter packet and inter protocols delays according to config
     def __set_delays(self):
         if 'inter_packet_delay' in self.config['pcap_processing']:
@@ -41,62 +52,38 @@ class PcapProcessing:
         self.out_config = self.out_folder + "/traffic-reproducer.yml"
         self.out_info = self.out_folder + "/traffic-info.json"
 
-    # Set random_seed (for pseudo anonymization)
-    def __set_random_seed(self):
-        if 'anonymize' in self.config['pcap_processing'] and self.config['pcap_processing']['anonymize']:
-            logging.critical(f"[remember to remove seed(1)] random_seed = {self.random_seed}!") # TMP DEBUGGING
-            seed(1) # TODO: only for debugging purposes, later on remove!!!
-            self.random_seed = randint(0,65535)
-
-    def __init__(self, config):
-        self.out_info_dict = {}
-        self.config = config
-
-        # Defaults
-        self.inter_packet_delay = 0.001
-        self.inter_protocol_delay = 1
-        self.random_seed = 0
-        self.out_folder = os.path.splitext(self.config['pcap'])[0]
-
-        self.__set_delays()
-        self.__set_output_filepaths()
-        self.__set_random_seed()
-
     def process_ipfix(self):
         logging.info("Processing IPFIX...")
         ipfix_p = IpfixProcessing(self.config['pcap'], 
-                                  self.config['ipfix']['select'])
+                                  self.config['IPFIX']['select'])
 
-        [info, packets] = ipfix_p.prep_for_repro(self.inter_packet_delay, 
-                                                 self.random_seed)
+        [info, packets] = ipfix_p.prep_for_repro(self.inter_packet_delay)
                                                  
         self.out_info_dict["IPFIX/NetFlow Information"] = info
         return packets
 
     def process_bgp(self):
         logging.info("Processing BGP...")
-        bgp_p = BGPProcessing(self.config['pcap'], self.config['bgp']['select'])
+        bgp_p = BGPProcessing(self.config['pcap'], self.config['BGP']['select'])
 
-        [info, packets] = bgp_p.prep_for_repro(self.inter_packet_delay, 
-                                               self.random_seed)
+        [info, packets] = bgp_p.prep_for_repro(self.inter_packet_delay)
 
         self.out_info_dict["BGP Information"] = info
         return packets
 
     def process_bmp(self):
         logging.info("Processing BMP...")
-        bmp_p = BMPProcessing(self.config['pcap'], self.config['bmp']['select'])
+        bmp_p = BMPProcessing(self.config['pcap'], self.config['BMP']['select'])
 
-        [info, packets] = bmp_p.prep_for_repro(self.inter_packet_delay, 
-                                               self.random_seed)
+        [info, packets] = bmp_p.prep_for_repro(self.inter_packet_delay)
 
         self.out_info_dict["BMP Information"] = info
         return packets
 
     def process_proto(self, proto_name):
-        if proto_name == 'ipfix': return self.process_ipfix()
-        elif proto_name == 'bgp': return self.process_bgp()
-        elif proto_name == 'bmp': return self.process_bmp()
+        if proto_name == 'IPFIX': return self.process_ipfix()
+        elif proto_name == 'BGP': return self.process_bgp()
+        elif proto_name == 'BMP': return self.process_bmp()
   
     def start(self):
         logging.info(f"Input pcap file location:      {self.config['pcap']}") 
@@ -106,11 +93,7 @@ class PcapProcessing:
         if not os.path.exists(self.out_folder):
             os.makedirs(self.out_folder)
 
-        # TODO: if multiple pcap files are provided as input --> merge here...
-        # --> better not, as otherwise we need to change also utils...
-        # --> provide an additional merger script in pcap utils...
-
-        # Process protocols following the order provided in config file
+        # Process protocols in the order provided in config file
         supported_protos = [e.value for e in Proto]
         packets = []
         for proto in [proto for proto in self.config if proto in supported_protos]:
