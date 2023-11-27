@@ -83,7 +83,7 @@ def tcp_fragment(packets, tcp_port):
 
     return packets_new
 
-def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port):
+def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port, tcp_seq_nr=1):
     # Construct packets (generate Ether/IP/TCP headers based on input arguments)
     # If we have payloads that are >1500 this function does not fragment
     # --> if you want to make sure they're fragmented call tcp_fragment() after calling this
@@ -91,7 +91,7 @@ def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port):
 
     prev_len = 0
     prev_payload = b''
-    next_tcp_seq_nr = 1
+    next_tcp_seq_nr = tcp_seq_nr
 
     for payload in payloads:
         
@@ -143,9 +143,10 @@ def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port):
                           TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                           Raw(load=prev_payload)
         
+        next_tcp_seq_nr += prev_len
         packets_new.append(ether_frame)
 
-    return packets_new
+    return packets_new, next_tcp_seq_nr
 
 
 # Fare il merge aggiustando i timestamps ma mantenendo invariati gli inter-packet delays (perché quelli sono già aggiustati dalle singole 

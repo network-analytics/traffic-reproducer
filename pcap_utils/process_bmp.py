@@ -168,7 +168,7 @@ class BMPProcessing:
                     #bmp_hdr.show()
 
                     length = bmp_hdr[BMPHeader].len
-                    print("length=", length)
+                    #print("length=", length)
                     bmp_session.bmp_packets.append(BMP(raw_bmp_packet[:length]))
 
                     raw_bmp_packet = raw_bmp_packet[length:]
@@ -192,9 +192,46 @@ class BMPProcessing:
             
             self.bmp_sessions[i].bmp_packets = bmp_packets_new
 
+#    def bmp_session_info(self):
+
+    def tcp_build_wrapper(self):
+        # - groups messages by msg_type
+        # - calls tcp_build helper to construct TCP segments s.t. MTU ~= 1500
+        # - calls tcp_fragment to make sure MTU < 1500
+
+        tcp_packets = []
+        
+        for bmp_session in self.bmp_sessions:
+            payloads = []
+            msg_type = 999
+
+            tcp_seq_nr = 1
+
+            for bmp_packet in bmp_session.bmp_packets:
+                if (bmp_packet[BMPHeader].type != msg_type and payloads):
+                    tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bmp_session.ip_ver,
+                                                          bmp_session.ip_src, bmp_session.ip_dst,
+                                                          self.bmp_selectors['tcp']['dport'],
+                                                          tcp_seq_nr)
+                    tcp_packets += tmp_tcp_packets
+                    payloads = [bmp_packet]
+                    msg_type = bmp_packet[BMPHeader].type
+                else:
+                    payloads.append(bmp_packet)
+
+            if (payloads): 
+                tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bmp_session.ip_ver,
+                                                      bmp_session.ip_src, bmp_session.ip_dst,
+                                                      self.bmp_selectors['tcp']['dport'],
+                                                      tcp_seq_nr)
+                tcp_packets += tmp_tcp_packets
+
+        tcp_packets = tcp_fragment(PacketList(tcp_packets), self.bmp_selectors['tcp']['dport'])
+                
+        return tcp_packets
+
     def adjust_timestamps(self, packets, inter_packet_delay):
         # TODO: modify this s.t. after INIT & OPEN MSG (PEER UPs) we have larger inter-packet delay!
-        # Do we really need this?? Let's investigate, but for now don't do it...
 
         packets_new = []
         reference_time = EDecimal(1672534800.000) # TODO: does this make sense?
@@ -207,7 +244,6 @@ class BMPProcessing:
         
         return packets_new
 
-
     def prep_for_repro(self, inter_packet_delay=0.001, random_seed=0):
 
         # Get some info for self.info struct
@@ -215,14 +251,7 @@ class BMPProcessing:
         #self.bmp_session_info()
 
         # Reconstruct TCP segments s.t. MTU~=1500
-        # --> TODO: we also have to call tcp_fragment() after if we want to make sure 
-        #           that MTU<1500 --> should not be needed as I don't expect so long bmp msgs.
-        # --> ideally messages should not be split up (no fragmentation)...
-        packets = tcp_build(self.bmp_sessions[0].bmp_packets,
-                            self.bmp_sessions[0].ip_ver,
-                            self.bmp_sessions[0].ip_src,
-                            self.bmp_sessions[0].ip_dst,
-                            self.bmp_selectors['tcp']['dport'])
+        packets = self.tcp_build_wrapper()
 
         # Adjust timestamps
         packets = self.adjust_timestamps(packets, inter_packet_delay)

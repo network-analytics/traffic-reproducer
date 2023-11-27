@@ -187,23 +187,6 @@ class BGPProcessing:
 
         return PacketList(packets_new)
 
-    # Export processed BGP packets in pcap file # TODO: do this s.t. can be used standalone
-    #def write_pcap(self, output_pcap):
-
-    def adjust_timestamps(self, inter_packet_delay):
-        # TODO: modify this s.t. after OPEN MSG we have larger inter-packet delay!
-
-        packets_new = []
-        reference_time = EDecimal(1672534800.000) # TODO: does this make sense?
-        pkt_counter = 0
-
-        for pkt in self.packets:
-            pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
-            packets_new.append(pkt)
-            pkt_counter += 1
-        
-        self.packets = packets_new
-
     def register_bgp_open(self, ip_src, bgp_packet):
 
         #get_layers(bgp_packet, True)
@@ -278,6 +261,24 @@ class BGPProcessing:
             # BGP Keepalives
             if bgp_packet.haslayer(BGPKeepAlive):
                 self.info[str(ip_src)]['keepalives_counter'] += 1
+
+    def adjust_timestamps(self, inter_packet_delay):
+        # TODO: modify this s.t. after OPEN MSG we have larger inter-packet delay!
+
+        packets_new = []
+        reference_time = EDecimal(1672534800.000) # TODO: does this make sense?
+        pkt_counter = 0
+
+        for pkt in self.packets:
+            pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
+            packets_new.append(pkt)
+            pkt_counter += 1
+        
+        self.packets = packets_new
+
+    # TODO: other functions to implements...
+    # Export processed BGP packets in pcap file # TODO: do this s.t. can be used standalone
+    #def write_pcap(self, output_pcap):
 
     def prep_for_repro(self, inter_packet_delay=0.001, random_seed=0):
 
