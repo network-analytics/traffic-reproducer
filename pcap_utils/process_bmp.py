@@ -289,10 +289,8 @@ class BMPProcessing:
         return tcp_packets
 
     def adjust_timestamps(self, packets, inter_packet_delay):
-        # TODO: modify this s.t. after INIT & OPEN MSG (PEER UPs) we have larger inter-packet delay!
-
         packets_new = []
-        reference_time = EDecimal(1672534800.000) # TODO: does this make sense?
+        reference_time = EDecimal(1672534800.000)
         pkt_counter = 0
 
         for pkt in packets:
@@ -307,7 +305,7 @@ class BMPProcessing:
         # Get some info for self.info struct
         self.bmp_session_info()
 
-        # Reconstruct TCP segments s.t. MTU~=1500
+        # Reconstruct TCP segments s.t. MTU~=1500 (<1500)
         packets = self.tcp_build_wrapper()
 
         # Adjust timestamps

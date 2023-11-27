@@ -24,6 +24,24 @@ def get_layers(packet, do_print=False, layer_limit=100):
 
     return layers
 
+def ether_replace(packets):
+    # Replace src and dst MAC address with random ones
+    packets_new = []
+
+    src_mac = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
+                                           random.randint(0, 255),
+                                           random.randint(0, 255))
+    dst_mac = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
+                                           random.randint(0, 255),
+                                           random.randint(0, 255))
+
+    for packet in packets:
+        packet[Ether].src = src_mac
+        packet[Ether].dst = dst_mac
+        packets_new.append(packet)
+    
+    return packets_new
+
 def tcp_fragment(packets, tcp_port):
     # Reconstruct packets (regenerate Ether/IP/TCP headers)
     packets_new = []
@@ -90,7 +108,7 @@ def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port, tcp_seq_nr=1):
     # This function will try to keep TCP packets len ~= 1500, but if there are single 
     #    payloads that are >1500 this function does not fragment
     #    --> If you want to make sure they're fragmented call tcp_fragment() after calling this
-    
+
     packets_new = []
     src_mac = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
                                            random.randint(0, 255),

@@ -106,7 +106,7 @@ class BGPProcessing:
         # Apply more advanced filters if provided in proto selectors, 
         # i.e. BGP msg type
         # TODO: this only applies at the first header (i.e. we assume messages of different type are not fragmented
-        #       by the tcp implementation) -> I don't know whether this is always true...
+        #       by the tcp implementation) --> to solve this we need to use the same approach that is used in process_bmp.py
 
         bgp_packets_new = []
 
@@ -121,10 +121,6 @@ class BGPProcessing:
 
     def __bgp_defragment(self, packets):
         # Quick & dirty BGP message defragment (not thoroughly tested)
-        # TODO (if we have time): we need to check size of all BGP messages vs.
-        #                         the respective payload to see if messages are 
-        #                         complete or we should discard them...
-
         packets_new = []
         tcp_sessions = packets.sessions()
         tcp_port = self.bgp_selectors['tcp']['dport']
@@ -268,17 +264,20 @@ class BGPProcessing:
                 self.info[str(ip_src)]['keepalives_counter'] += 1
 
     def adjust_timestamps(self, inter_packet_delay):
-        # TODO: modify this s.t. after OPEN MSG we have larger inter-packet delay!
-
         packets_new = []
-        reference_time = EDecimal(1672534800.000) # TODO: does this make sense?
+        reference_time = EDecimal(1672534800.000)
         pkt_counter = 0
 
         for pkt in self.packets:
             pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
             packets_new.append(pkt)
             pkt_counter += 1
-        
+
+            # Check if we have an OPEN msg at the beginning of a tcp session
+            # --> then add 1s delay after it
+            if (pkt[TCP].seq == 1 and raw(pkt[TCP].payload)[18]) == 1:
+                reference_time += EDecimal(1)
+
         self.packets = packets_new
 
     def prep_for_repro(self, inter_packet_delay=0.001):

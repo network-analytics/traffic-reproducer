@@ -12,6 +12,7 @@ import os
 import json
 from time import time, sleep
 from scapy.utils import wrpcap
+from scapy.all import PacketList, EDecimal
 
 # Internal Libraries
 from proto import Proto
@@ -85,6 +86,18 @@ class PcapProcessing:
         elif proto_name == 'BGP': return self.process_bgp()
         elif proto_name == 'BMP': return self.process_bmp()
   
+    def adjust_timestamps(self, packets, last_protocol_pkt_time):
+        # Reference time for delay handling
+        reference_time = EDecimal(1672534800.000)
+
+        packets_new = []
+
+        for packet in packets:
+            packet.time = packet.time + (last_protocol_pkt_time-reference_time) + EDecimal(self.inter_protocol_delay)
+            packets_new.append(packet)
+
+        return packets_new
+
     def start(self):
         logging.info(f"Input pcap file location:      {self.config['pcap']}") 
         logging.info("Starting pcap-file processing...")
@@ -97,11 +110,13 @@ class PcapProcessing:
         supported_protos = [e.value for e in Proto]
         packets = []
         for proto in [proto for proto in self.config if proto in supported_protos]:
-            packets += self.process_proto(proto)
 
-        # Merge the scapy packet object in the order given by selectors (with some default waiting times between the protocols)
-        # --> we can do it in the for loop above directly
-        # --> with some custom delay (e.g. if proto=bgp --> add 1s delay to the time s.t. next packet will be added after 1s)
+            packets_next = self.process_proto(proto)
+
+            if packets:
+                packets_next = self.adjust_timestamps(packets_next, packets[-1].time)
+
+            packets += packets_next 
 
         # Export processed packets
         wrpcap(self.out_pcap, packets)

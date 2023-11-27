@@ -1,3 +1,7 @@
 # Pcap Processing Examples:
 
-sudo env PATH="$PATH" python main.py -d -t examples/pcap_processing/daisy44.yml -p
+python main.py -d -p -t examples/pcap_processing/ipfix-bmp.yml
+
+or 
+
+sudo env PATH="$PATH" python main.py -d -p -t examples/pcap_processing/ipfix-bmp.yml

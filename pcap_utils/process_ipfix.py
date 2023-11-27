@@ -19,6 +19,7 @@ from scapy.contrib.mpls import *
 
 # Internal Libraries
 from pcap_utils.filter import filter_generator
+from pcap_utils.scapy_helpers import get_layers, ether_replace
 
 class IpfixProcessing:
     def __init__(self, pcap_file, ipfix_selectors):
@@ -62,21 +63,6 @@ class IpfixProcessing:
         logging.debug(f"Size of defragmented ipfix packets: {len(packets_new)}")
         
         return packets_new
-
-    # TODO: modify this s.t. we have higher delay between template & data
-    def adjust_timestamps(self, inter_packet_delay):
-
-        packets_new = []
-
-        reference_time = EDecimal(1672534800.000) # does this make sense?
-        
-        pkt_counter = 0
-        for pkt in self.packets:
-            pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
-            packets_new.append(pkt)
-            pkt_counter += 1
-        
-        self.packets = packets_new
 
     # Add some info to self.info dict for v5 records
     def register_v5_info(self, ip_src, ipfix_packet):
@@ -312,16 +298,30 @@ class IpfixProcessing:
         
         self.packets = packets_new
 
+    def adjust_timestamps(self, packets, inter_packet_delay):
+        packets_new = []
+
+        reference_time = EDecimal(1672534800.000)
+        
+        pkt_counter = 0
+        for pkt in packets:
+            pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
+            packets_new.append(pkt)
+            pkt_counter += 1
+        
+        return packets_new
+
     def prep_for_repro(self, inter_packet_delay=0.001):
 
         # Gather Info and cleanup
         self.inspect_and_cleanup()
 
-        # Anonymize 
+        # Randomize MAC addresses
+        packets = ether_replace(self.packets)
 
         # Adjust timestamps
-        self.adjust_timestamps(inter_packet_delay)
+        packets = self.adjust_timestamps(packets, inter_packet_delay)
 
         logging.info(f"Size of processed IPFIX/NFv9 packets: {len(self.packets)}")
-        return [self.info, self.packets]
+        return [self.info, packets]
 
