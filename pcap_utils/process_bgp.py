@@ -4,6 +4,10 @@
 # Distributed under the MIT License (http://opensource.org/licenses/MIT)
 #
 
+# TODO:
+# - write_pcap(self, output_pcap) function (s.t. this class can be used standalone...)
+# - pseudo anonymize support
+
 # External Libraries
 import sys
 import logging
@@ -189,8 +193,6 @@ class BGPProcessing:
 
     def register_bgp_open(self, ip_src, bgp_packet):
 
-        #get_layers(bgp_packet, True)
-
         self.info[str(ip_src)]['bgp_version'] = bgp_packet[BGPOpen].version
         self.info[str(ip_src)]['bgp_id'] = bgp_packet[BGPOpen].bgp_id
         self.info[str(ip_src)]['as_number'] = bgp_packet[BGPOpen].my_as
@@ -276,15 +278,9 @@ class BGPProcessing:
         
         self.packets = packets_new
 
-    # TODO: other functions to implements...
-    # Export processed BGP packets in pcap file # TODO: do this s.t. can be used standalone
-    #def write_pcap(self, output_pcap):
-
     def prep_for_repro(self, inter_packet_delay=0.001, random_seed=0):
 
         # Anonymize data (TODO)
-        # TODO: determine if this is needed or not
-        #self.pseudo_anonymize()
 
         # Get some info for self.info struct
         self.bgp_session_info()

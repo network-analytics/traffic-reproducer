@@ -4,6 +4,8 @@
 # Distributed under the MIT License (http://opensource.org/licenses/MIT)
 #
 
+# TODO: randomize src/dst mac like for BGP/BMP
+
 # External Libraries
 import sys
 import logging
@@ -16,7 +18,6 @@ from scapy.layers.l2 import *
 from scapy.contrib.mpls import *
 
 # Internal Libraries
-from pcap_utils.scapy_helpers import get_layers
 from pcap_utils.filter import filter_generator
 
 class IpfixProcessing:
@@ -249,7 +250,6 @@ class IpfixProcessing:
 
             # Add sampling info if this is is sampling option data (TODO: if needed decode sampling option data)
             #if 'option_description' in self.info[ip_src][ipfix_version][SourceID_str][template].keys():
-            #    get_layers(ipfix_packet, True)
         
             i += 1
         
@@ -306,7 +306,6 @@ class IpfixProcessing:
             ipfix_packet = NetflowHeader(raw(ipfix_payload))
 
             #ipfix_packet.show()
-            #get_layers(ipfix_packet, True)
 
             if self.ipfix_custom_checks(ip_src, ipfix_packet):
                 packets_new.append(packet)

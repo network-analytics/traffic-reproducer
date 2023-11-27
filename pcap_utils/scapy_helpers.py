@@ -5,26 +5,22 @@
 #
 
 # Internal Libraries
-import logging
+import logging, random
 
 # External Libraries
 from scapy.all import Ether, IP, IPv6, TCP, Raw, raw
 
-def get_layers(packet, do_print=False):
+def get_layers(packet, do_print=False, layer_limit=100):
     layers = []
     counter = 0
 
-    print("   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ---   ")
-    while True:
+    while (counter < layer_limit):
         layer = packet.getlayer(counter)
         if layer is None: break
-        layers.append(layer)
-        
-        if do_print:
-            print(layer)
+        layers.append(layer.name)
         counter += 1
         
-    if do_print: print("Number of layers: ", counter)
+    if do_print: print(layers)
 
     return layers
 
@@ -35,6 +31,12 @@ def tcp_fragment(packets, tcp_port):
     # Process all sessions
     tcp_sessions = packets.sessions()
     for session_id, plist in tcp_sessions.items():
+        src_mac = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
+                                               random.randint(0, 255),
+                                               random.randint(0, 255))
+        dst_mac = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
+                                               random.randint(0, 255),
+                                               random.randint(0, 255))
 
         logging.debug(f"Fragmenting TCP session [ID = {session_id}]")
 
@@ -63,13 +65,13 @@ def tcp_fragment(packets, tcp_port):
                 tcp_payload_size = len(raw_payload)
                 flg = 0x02 if next_tcp_seq_nr == 1 else 0x18
                 if IP in packet:
-                    ether_frame = Ether() /\
+                    ether_frame = Ether(src=src_mac, dst=dst_mac) /\
                                   IP(src=ip_src, dst=ip_dst) /\
                                   TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                                   Raw(load=raw_payload)
 
                 elif IPv6 in packet:
-                    ether_frame = Ether() /\
+                    ether_frame = Ether(src=src_mac, dst=dst_mac) /\
                                   IPv6(src=ip_src, dst=ip_dst) /\
                                   TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                                   Raw(load=raw_payload)
@@ -88,6 +90,12 @@ def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port, tcp_seq_nr=1):
     # If we have payloads that are >1500 this function does not fragment
     # --> if you want to make sure they're fragmented call tcp_fragment() after calling this
     packets_new = []
+    src_mac = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
+                                           random.randint(0, 255),
+                                           random.randint(0, 255))
+    dst_mac = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
+                                           random.randint(0, 255),
+                                           random.randint(0, 255))
 
     prev_len = 0
     prev_payload = b''
@@ -109,13 +117,13 @@ def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port, tcp_seq_nr=1):
             flg = 0x02 if next_tcp_seq_nr == 1 else 0x18   
             
             if ip_ver == 4:
-                ether_frame = Ether() /\
+                ether_frame = Ether(src=src_mac, dst=dst_mac) /\
                               IP(src=ip_src, dst=ip_dst) /\
                               TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                               Raw(load=prev_payload)
 
             elif ip_ver == 6:
-                ether_frame = Ether() /\
+                ether_frame = Ether(src=src_mac, dst=dst_mac) /\
                               IPv6(src=ip_src, dst=ip_dst) /\
                               TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                               Raw(load=prev_payload)
@@ -132,13 +140,13 @@ def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port, tcp_seq_nr=1):
         flg = 0x02 if next_tcp_seq_nr == 1 else 0x18   
             
         if ip_ver == 4:          
-            ether_frame = Ether() /\
+            ether_frame = Ether(src=src_mac, dst=dst_mac) /\
                           IP(src=ip_src, dst=ip_dst) /\
                           TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                           Raw(load=prev_payload)
 
         elif ip_ver == 6:
-            ether_frame = Ether() /\
+            ether_frame = Ether(src=src_mac, dst=dst_mac) /\
                           IPv6(src=ip_src, dst=ip_dst) /\
                           TCP(seq=next_tcp_seq_nr, ack=next_tcp_seq_nr-1, flags=flg, dport=tcp_port) /\
                           Raw(load=prev_payload)

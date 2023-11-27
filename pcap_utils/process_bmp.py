@@ -35,19 +35,18 @@ class BMPProcessing:
         #       "bmp_version": 
         #       "sysDescr": 
         #       "sysName": 
-        #       "BGP_peers": [
-        #           { "bgp_version":
-        #             "bgp_id":
-        #             "as_number": 
-        #             "capabilities": []    -> TODO: get the open from the peer ip
-        #             "updates_counter": 
-        #             "notif_counter":
-        #             "keepalive_counter":
-        #             "route_refresh_counter": },
-        #           { ... }, ... ]
+        #       "BGP_peers": {"Peer_BGP_Id":
+        #                                     { "bgp_version": 
+        #                                       "as_number": 
+        #                                       "capabilities": []    
+        #                                       "route_monitoring_counter":
+        #                                       "stats_counter":    },
         #                        ... }
+        #               ... }
         self.info = {}
-        self.bmp_sessions = [] # list of BMPSession() instances
+
+        # List of BMPSession() instances
+        self.bmp_sessions = [] 
 
         self.bmp_selectors = bmp_selectors
 
@@ -118,7 +117,7 @@ class BMPProcessing:
         for session_id, plist in tcp_sessions.items():
 
             logging.debug(f"Defragmenting BMP from TCP session [ID = {session_id}]")
-            print(plist.summary())
+            #print(plist.summary())
 
             # Get IP addresses to later reconstruct packet headers
             first_pkt = plist[0]
@@ -192,13 +191,74 @@ class BMPProcessing:
             
             self.bmp_sessions[i].bmp_packets = bmp_packets_new
 
-#    def bmp_session_info(self):
+
+    def register_bgp_open(self, ip_src, peer_bgp_id, bgp_packet):
+
+        self.info[str(ip_src)]['BGP_Peers'][str(peer_bgp_id)]['bgp_version'] = bgp_packet[BGPOpen].version
+
+        # TODO: check capabilities if necessary
+
+        self.info[str(ip_src)]['BGP_Peers'][str(peer_bgp_id)]['route_monitoring_counter'] = 0
+        self.info[str(ip_src)]['BGP_Peers'][str(peer_bgp_id)]['stats_counter'] = 0
+
+    def register_bmp_peerup(self, ip_src, bmp_packet):
+
+        peer_bgp_id = bmp_packet[PerPeerHeader].peer_bgp_id
+
+        #bmp_packet.show()
+        #get_layers(bmp_packet, do_print=True, layer_limit=10)
+
+        if str(peer_bgp_id) not in self.info[str(ip_src)]['BGP_Peers'].keys():
+            
+            self.info[str(ip_src)]['BGP_Peers'][str(peer_bgp_id)] = {"as_number": bmp_packet[PerPeerHeader].peer_asn}
+            self.register_bgp_open(ip_src, peer_bgp_id, bmp_packet)
+
+    def register_bmp_init(self, ip_src, bmp_packet):
+        self.info[str(ip_src)]['bmp_version'] = bmp_packet[BMPHeader].version
+
+        for tlv in bmp_packet[BMPHeader].information:
+            if tlv.type == 1:
+                self.info[str(ip_src)]['sysDescr'] = tlv.value.decode()
+            elif tlv.type == 2:
+                self.info[str(ip_src)]['sysName'] = tlv.value.decode()
+        
+        # Initialize BGP Peers Dict
+        self.info[str(ip_src)]['BGP_Peers'] = {}
+
+    def bmp_session_info(self):
+        for bmp_session in self.bmp_sessions:
+            if str(bmp_session.ip_src) not in self.info.keys():
+                self.info[str(bmp_session.ip_src)] = {}
+            
+            for bmp_packet in bmp_session.bmp_packets:
+
+                # DEBUG PRINT:
+                #get_layers(bmp_packet, do_print=True, layer_limit=5)
+
+                # BMP INIT
+                if bmp_packet.haslayer(BMPInitiation):
+                    self.register_bmp_init(bmp_session.ip_src, bmp_packet)
+
+                # BMP PEER UP
+                elif bmp_packet.haslayer(BMPPeerUp):
+                    self.register_bmp_peerup(bmp_session.ip_src, bmp_packet)
+
+                # BMP ROUTE-MONITORING
+                elif bmp_packet.haslayer(BMPRouteMonitoring):
+                    self.info[str(bmp_session.ip_src)]['BGP_Peers'] \
+                             [str(bmp_packet[PerPeerHeader].peer_bgp_id)]['route_monitoring_counter'] += 1
+
+                # BMP STATS
+                elif bmp_packet.haslayer(BMPStats):
+                    self.info[str(bmp_session.ip_src)]['BGP_Peers'] \
+                             [str(bmp_packet[PerPeerHeader].peer_bgp_id)]['stats_counter'] += 1
+
+                # BMP PEER DOWN & OTHERS (TODO: implement if necessary...)
 
     def tcp_build_wrapper(self):
         # - groups messages by msg_type
         # - calls tcp_build helper to construct TCP segments s.t. MTU ~= 1500
         # - calls tcp_fragment to make sure MTU < 1500
-
         tcp_packets = []
         
         for bmp_session in self.bmp_sessions:
@@ -206,7 +266,6 @@ class BMPProcessing:
             msg_type = 999
 
             tcp_seq_nr = 1
-
             for bmp_packet in bmp_session.bmp_packets:
                 if (bmp_packet[BMPHeader].type != msg_type and payloads):
                     tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bmp_session.ip_ver,
@@ -247,8 +306,7 @@ class BMPProcessing:
     def prep_for_repro(self, inter_packet_delay=0.001, random_seed=0):
 
         # Get some info for self.info struct
-        # TODO: implement this using self.bmp_sessions
-        #self.bmp_session_info()
+        self.bmp_session_info()
 
         # Reconstruct TCP segments s.t. MTU~=1500
         packets = self.tcp_build_wrapper()
