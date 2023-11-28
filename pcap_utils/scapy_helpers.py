@@ -175,9 +175,3 @@ def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port, tcp_seq_nr=1):
         packets_new.append(ether_frame)
 
     return packets_new, next_tcp_seq_nr
-
-
-# Fare il merge aggiustando i timestamps ma mantenendo invariati gli inter-packet delays (perché quelli sono già aggiustati dalle singole 
-#  processing functions! --> modifica solo inter protocol delays...
-def merge_and_adjust_timestamps(packets):
-    return packets

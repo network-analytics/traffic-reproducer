@@ -58,7 +58,6 @@ class BMPProcessing:
         self.__bmp_apply_additional_filters()
 
 
-
     def __bmp_extract(self, pcap_file):
         # Extract BMP packets with filter selectors
 
@@ -84,7 +83,7 @@ class BMPProcessing:
         # Select clean BMP sessions only
         #  --> discard all messages before BMP INIT is received
         #  --> discard incomplete sessions (i.e. without any INIT)
-        #  --> discard too small packets (i.e. packets smaller than 6bytes)
+        #  --> discard too small packets
 
         packets_new = []
         tcp_sessions = packets.sessions()
@@ -100,14 +99,14 @@ class BMPProcessing:
                     keep_session = True
                     packets_new.append(packet)
                 else:
-                    # Keep only packets after OPEN received
+                    # Keep only packets after INIT received
                     if keep_session and len(bmp_packet) >= 6: 
                         packets_new.append(packet)
 
         return PacketList(packets_new)
 
     def __bmp_sessions_defragment(self, packets):
-        # Quick & dirty BMP message defragment (not thoroughly tested)
+        # BMP messages defragment
 
         tcp_sessions = packets.sessions()
         tcp_port = self.bmp_selectors['tcp']['dport']
@@ -129,7 +128,7 @@ class BMPProcessing:
                 ip_src = first_pkt[IPv6].src
                 ip_dst = first_pkt[IPv6].dst
 
-            bmp_packets_temp = []
+            raw_bmp_packets = []
             bmp_session = BMPSession(ip_ver, ip_src, ip_dst)            
 
             # Defragmenting BMP session
@@ -140,25 +139,23 @@ class BMPProcessing:
                 
                 if packet[TCP].payload.name == "Raw":
                     if not reassembled_raw:
-                        reassembled_raw = raw(bmp_packets_temp.pop()) + raw(packet[TCP].payload)
+                        reassembled_raw = raw_bmp_packets.pop() + raw(packet[TCP].payload)
                     else:
                         reassembled_raw += raw(packet[TCP].payload)
 
                 else:
                     if reassembled_raw:
-                        bmp_packets_temp.append(BMP(reassembled_raw))
+                        raw_bmp_packets.append(reassembled_raw)
                         reassembled_raw = None
                         
-                    bmp_packets_temp.append(packet[TCP].payload)
+                    raw_bmp_packets.append(raw(packet[TCP].payload))
 
             # Append last packet if we have remaining raw payload
             if reassembled_raw:
-                bmp_packets_temp.append(BMP(reassembled_raw))
+                raw_bmp_packets.append(reassembled_raw)
 
             # Split up and get single BMP messages
-            for bmp_packet in bmp_packets_temp:
-
-                raw_bmp_packet = raw(bmp_packet)
+            for raw_bmp_packet in raw_bmp_packets:
                 bmp_hdr = BMP(raw_bmp_packet[:6])
 
                 while bmp_hdr.getlayer(BMPHeader):

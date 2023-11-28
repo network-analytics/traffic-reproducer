@@ -96,12 +96,14 @@ def parse_config_file(cfg):
 def pcap_processing(args, config):
     if 'pcap_processing' in config:
 
+        exit_flag = config['pcap_processing']['exit']
+
         # Start pcap processing
         pp = PcapProcessing(config=config)
         pp_config = pp.start()
 
         # Exit if we only want pcap process 
-        if config['pcap_processing']['exit']:
+        if exit_flag:
             logging.info("Exiting (exit=yes in config file)...")
             sys.exit()
         

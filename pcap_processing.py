@@ -10,6 +10,7 @@ import logging
 import pathlib
 import os
 import json
+import yaml
 from time import time, sleep
 from scapy.utils import wrpcap
 from scapy.all import PacketList, EDecimal
@@ -19,8 +20,6 @@ from proto import Proto
 from pcap_utils.process_ipfix import IpfixProcessing
 from pcap_utils.process_bgp import BGPProcessing
 from pcap_utils.process_bmp import BMPProcessing
-from pcap_utils.scapy_helpers import merge_and_adjust_timestamps
-
 
 class PcapProcessing:
 
@@ -61,24 +60,41 @@ class PcapProcessing:
         [info, packets] = ipfix_p.prep_for_repro(self.inter_packet_delay)
                                                  
         self.out_info_dict["IPFIX/NetFlow Information"] = info
+
+        # Keep only port filter for repro
+        self.config['IPFIX']['select'].pop('ip', None)
+        self.config['IPFIX']['select'].pop('cflow', None)
+
         return packets
 
     def process_bgp(self):
         logging.info("Processing BGP...")
-        bgp_p = BGPProcessing(self.config['pcap'], self.config['BGP']['select'])
+        bgp_p = BGPProcessing(self.config['pcap'], 
+                              self.config['BGP']['select'])
 
         [info, packets] = bgp_p.prep_for_repro(self.inter_packet_delay)
 
         self.out_info_dict["BGP Information"] = info
+
+        # Keep only port filter for repro
+        self.config['BGP']['select'].pop('ip', None)
+        self.config['BGP']['select'].pop('bgp', None)
+
         return packets
 
     def process_bmp(self):
         logging.info("Processing BMP...")
-        bmp_p = BMPProcessing(self.config['pcap'], self.config['BMP']['select'])
+        bmp_p = BMPProcessing(self.config['pcap'], 
+                              self.config['BMP']['select'])
 
         [info, packets] = bmp_p.prep_for_repro(self.inter_packet_delay)
 
         self.out_info_dict["BMP Information"] = info
+
+        # Keep only port filter for repro
+        self.config['BMP']['select'].pop('ip', None)
+        self.config['BMP']['select'].pop('bmp', None)
+
         return packets
 
     def process_proto(self, proto_name):
@@ -86,6 +102,16 @@ class PcapProcessing:
         elif proto_name == 'BGP': return self.process_bgp()
         elif proto_name == 'BMP': return self.process_bmp()
   
+    
+    def adapt_config_for_repro(self):
+        # Remove pcap_processing section
+        self.config.pop('pcap_processing')
+
+        # Set processed pcap location
+        self.config['pcap'] = self.out_pcap
+
+        # TODO: add some of the defaults if they're missing
+
     def adjust_timestamps(self, packets, last_protocol_pkt_time):
         # Reference time for delay handling
         reference_time = EDecimal(1672534800.000)
@@ -111,22 +137,24 @@ class PcapProcessing:
         packets = []
         for proto in [proto for proto in self.config if proto in supported_protos]:
 
-            packets_next = self.process_proto(proto)
+            proto_packets = self.process_proto(proto)
 
             if packets:
-                packets_next = self.adjust_timestamps(packets_next, packets[-1].time)
+                proto_packets = self.adjust_timestamps(proto_packets, packets[-1].time)
 
-            packets += packets_next 
+            packets += proto_packets 
 
         # Export processed packets
         wrpcap(self.out_pcap, packets)
 
-        # Modify self.config [remove unused entries, add/modify needed ones, then publish it so self.out_config (dict to yml conversion)]
-        # --> self.config will match (and used to produce) the traffic-reproducer.yml to be used for reproducing the processed pcap
-        # --> only include the tcp/udp port selector there, as we already filtered on everything else (but we still need a main proto distinguisher for
-        #     the reproducer to distinguish traffic from other protos!)
+        # Adapt config file for reproducing and export
+        self.adapt_config_for_repro()
+        print(self.config)
+        file=open(self.out_config, "w")
+        yaml.dump(self.config, file, sort_keys=False)
+        file.close()
 
-        # Export and log out_info_json
+        # Export out_info_json
         out_info_json = json.dumps(self.out_info_dict, indent = 3)
         with open(self.out_info, "w") as outfile:
             outfile.write(out_info_json)
