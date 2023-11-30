@@ -2,9 +2,6 @@
 
 Given a PCAP and a configuration file, this scapy-based tool can reproduce traffic to a collector. This can be useful, for example, to debug or test a collector with data from some routers or with handcrafted telemetry data.
 
-# TODO: write in doc here
-- tcp reassembly best effort since based on pcap captures --> could experience issues (in general better to not use crazy big pcap files..)
-
 ## Features
 
 - Reproduce IPFIX/NFv9/NFv5, BMP and BGP from pcap files
@@ -57,11 +54,15 @@ options:
 
 ## Generating a pcap file
 
+TODO:
+
 ### Pcap pre-processing
 
-TODO: explain how to use and what it does 
+TODO:
 
 ## Internals
+
+TODO:
 
 ### Time bucketing
 

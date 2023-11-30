@@ -4,7 +4,7 @@
 # Distributed under the MIT License (http://opensource.org/licenses/MIT)
 #
 
-# TODO:
+# TODOs:
 # - write_pcap(self, output_pcap) function (s.t. this class can be used standalone...)
 # - pseudo anonymize support
 
