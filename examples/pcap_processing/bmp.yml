@@ -1,5 +1,5 @@
 ---
-pcap: examples/pcap_processing/
+pcap: examples/pcap_processing/bmp.pcap
 
 # Pre-processing settings
 pcap_processing:
@@ -10,5 +10,7 @@ pcap_processing:
 # Protocols with filter selectors
 BMP:
   select: 
+    ip: 
+      src: 192.0.2.55
     tcp:
       dport: 1790

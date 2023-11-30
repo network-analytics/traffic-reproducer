@@ -1,0 +1,23 @@
+---
+pcap: examples/pcap_processing/ipfix-multi-source.pcap
+
+# Pre-processing settings
+pcap_processing:
+  exit: yes                
+  inter_packet_delay: 0.001
+  inter_protocol_delay: 1  
+
+# Protocols with filter selectors
+IPFIX:
+  select:
+    ip:
+      src: 
+      - 138.187.0.13
+      - 138.187.57.55
+      - 10.10.0.33
+    udp:
+      dport: 9991
+    cflow:
+      version:
+      - 9   # NetFlow v9
+      - 10  # IPFIX
