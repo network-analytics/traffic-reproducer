@@ -105,7 +105,7 @@ class BGPProcessing:
                     packets_new.append(packet)
                 else:
                     # Keep only packets after OPEN received
-                    if keep_session and len(bgp_packet) > 18: 
+                    if keep_session and len(bgp_packet) >= 6: 
                         packets_new.append(packet)
 
         return PacketList(packets_new)
@@ -164,13 +164,19 @@ class BGPProcessing:
                 bgp_hdr = BGP(raw_bgp_packet[:19])
 
                 while bgp_hdr.getlayer(BGPHeader):
-
-                    #bgp_hdr.show()
-
                     length = bgp_hdr[BGPHeader].len
-                    #print("length=", length)
                     bgp_session.bgp_packets.append(BGP(raw_bgp_packet[:length]))
 
+                    # Load next header
+                    raw_bgp_packet = raw_bgp_packet[length:]
+                    bgp_hdr = BGP(raw_bgp_packet[:19])
+
+                # Handle BPGKeepAlive case (has no scapy BGPHeader)
+                while bgp_hdr.getlayer(BGPKeepAlive):
+                    length = bgp_hdr[BGPKeepAlive].len
+                    bgp_session.bgp_packets.append(BGP(raw_bgp_packet[:length]))
+
+                    # Load next header
                     raw_bgp_packet = raw_bgp_packet[length:]
                     bgp_hdr = BGP(raw_bgp_packet[:19])
                     
@@ -183,10 +189,13 @@ class BGPProcessing:
         # Generate filter from selectors
         proto_filter = bgp_msg_filter_generator(self.bgp_selectors)
 
-        for i in range(len(self.bgp_sessions)):
+        for i in range(0, len(self.bgp_sessions)):
 
             bgp_packets_new = []
             for bgp_packet in self.bgp_sessions[i].bgp_packets:
+
+                #get_layers(bgp_packet, do_print=True, layer_limit=5)
+                
                 if proto_filter(bgp_packet):
                     bgp_packets_new.append(bgp_packet)
             
@@ -241,30 +250,27 @@ class BGPProcessing:
           i += 1
 
     def bgp_session_info(self):
-        for packet in self.packets:
+        for bgp_session in self.bgp_sessions:
+            if str(bgp_session.ip_src) not in self.info.keys():
+                self.info[str(bgp_session.ip_src)] = {}
+            
+            for bgp_packet in bgp_session.bgp_packets:
 
-            # Add ip_src to self.info dict
-            if IP in packet:
-                ip_src = packet[IP].src
-            elif IPv6 in packet:
-                ip_src = packet[IPv6].src
+                # DEBUG PRINT:
+                #get_layers(bgp_packet, do_print=True, layer_limit=5)
 
-            if str(ip_src) not in self.info.keys():
-                self.info[str(ip_src)] = {}
+                # BGP Open
+                if bgp_packet.haslayer(BGPOpen):
+                    self.register_bgp_open(bgp_session.ip_src, bgp_packet)
 
-            bgp_packet = BGPHeader(raw(packet[TCP].payload))
+                # BGP Updates
+                if bgp_packet.haslayer(BGPUpdate):
+                    self.register_bgp_updates(bgp_session.ip_src, bgp_packet)
 
-            # BGP Open
-            if bgp_packet.haslayer(BGPOpen):
-                self.register_bgp_open(ip_src, bgp_packet)
+                # BGP Keepalives
+                if bgp_packet.haslayer(BGPKeepAlive):
+                    self.info[str(bgp_session.ip_src)]['keepalives_counter'] += 1
 
-            # BGP Updates
-            if bgp_packet.haslayer(BGPUpdate):
-                self.register_bgp_updates(ip_src, bgp_packet)
-
-            # BGP Keepalives
-            if bgp_packet.haslayer(BGPKeepAlive):
-                self.info[str(ip_src)]['keepalives_counter'] += 1
 
     def tcp_build_wrapper(self):
         # - groups messages by msg_type
@@ -274,18 +280,23 @@ class BGPProcessing:
         
         for bgp_session in self.bgp_sessions:
             payloads = []
-            msg_type = 999
+            prev_msg_type = 999
 
             tcp_seq_nr = 1
             for bgp_packet in bgp_session.bgp_packets:
-                if (bgp_packet[BGPHeader].type != msg_type and payloads):
+
+                # Handle BPGKeepAlive case (has no scapy BGPHeader)
+                msg_type = bgp_packet[BGPKeepAlive].type if bgp_packet.getlayer(BGPKeepAlive) else\
+                           bgp_packet[BGPHeader].type
+                
+                if (msg_type != prev_msg_type and payloads):
                     tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bgp_session.ip_ver,
                                                           bgp_session.ip_src, bgp_session.ip_dst,
                                                           self.bgp_selectors['tcp']['dport'],
                                                           tcp_seq_nr)
                     tcp_packets += tmp_tcp_packets
-                    payloads = [bgp_packet]
-                    msg_type = bgp_packet[BGPHeader].type
+                    payloads = [bgp_packet] # initialize new payloads list
+                    prev_msg_type = msg_type
                 else:
                     payloads.append(bgp_packet)
 
@@ -322,7 +333,7 @@ class BGPProcessing:
     def prep_for_repro(self, inter_packet_delay=0.001):
 
         # Get some info for self.info struct
-        #self.bgp_session_info()
+        self.bgp_session_info()
 
         # Reconstruct TCP segments s.t. MTU~=1500 (<1500)
         packets = self.tcp_build_wrapper()

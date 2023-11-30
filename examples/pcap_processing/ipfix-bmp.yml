@@ -1,17 +1,13 @@
 ---
 pcap: examples/pcap_processing/ipfix-bmp.pcap
 
+# Pre-processing settings
 pcap_processing:
   exit: yes                
   inter_packet_delay: 0.001
   inter_protocol_delay: 1
 
-network:
-  interface: null
-  map:
-  - src_ip:         198.51.100.44
-    repro_ip:       192.168.100.1
-
+# Protocols with filter selectors
 BMP:
   select: 
     ip:
@@ -20,9 +16,13 @@ BMP:
       dport: 1790
     bmp: 
       type:
-      - 4 # INIT
-      - 3 # PEER UP
       - 0 # ROUTE MONITORING
+      - 1 # STATS
+      - 2 # PEER DOWN
+      - 3 # PEER UP
+      - 4 # INIT
+      - 5 # TERM
+      - 6 # ROUTE MIRRORING
 
 IPFIX:
   select:

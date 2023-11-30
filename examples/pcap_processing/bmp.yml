@@ -1,0 +1,14 @@
+---
+pcap: examples/pcap_processing/
+
+# Pre-processing settings
+pcap_processing:
+  exit: yes                
+  inter_packet_delay: 0.001
+  inter_protocol_delay: 1
+
+# Protocols with filter selectors
+BMP:
+  select: 
+    tcp:
+      dport: 1790

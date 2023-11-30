@@ -61,10 +61,12 @@ class PcapProcessing:
                                                  
         self.out_info_dict["IPFIX/NetFlow Information"] = info
 
-        # Keep only port filter for repro
+        # Adapt config and add defaults if missing (for repro)
         self.config['IPFIX']['select'].pop('ip', None)
         self.config['IPFIX']['select'].pop('cflow', None)
-
+        if 'collector' not in self.config['IPFIX']:
+            self.config['IPFIX']['collector'] = {'ip': 'COLLECTOR_IP',\
+                                                 'port': 'COLLECTOR_IPFIX_PORT'}
         return packets
 
     def process_bgp(self):
@@ -76,10 +78,12 @@ class PcapProcessing:
 
         self.out_info_dict["BGP Information"] = info
 
-        # Keep only port filter for repro
+        # Adapt config and add defaults if missing (for repro)
         self.config['BGP']['select'].pop('ip', None)
         self.config['BGP']['select'].pop('bgp', None)
-
+        if 'collector' not in self.config['BGP']:
+            self.config['BGP']['collector'] = {'ip': 'COLLECTOR_IP',\
+                                              'port': 'COLLECTOR_BGP_PORT'}
         return packets
 
     def process_bmp(self):
@@ -91,10 +95,12 @@ class PcapProcessing:
 
         self.out_info_dict["BMP Information"] = info
 
-        # Keep only port filter for repro
+        # Adapt config and add defaults if missing (for repro)
         self.config['BMP']['select'].pop('ip', None)
         self.config['BMP']['select'].pop('bmp', None)
-
+        if 'collector' not in self.config['BMP']:
+            self.config['BMP']['collector'] = {'ip': 'COLLECTOR_IP',\
+                                              'port': 'COLLECTOR_BGP_PORT'}
         return packets
 
     def process_proto(self, proto_name):
@@ -110,7 +116,22 @@ class PcapProcessing:
         # Set processed pcap location
         self.config['pcap'] = self.out_pcap
 
-        # TODO: add some of the defaults if they're missing
+        # Add some of the defaults if they're missing
+        if 'time_factor' not in self.config:
+            self.config['time_factor'] = 1
+        if 'keep_open' not in self.config:
+            self.config['keep_open'] = False
+        if 'no_sync' not in self.config:
+            self.config['no_sync'] = False
+        if 'optimize' not in self.config:
+            self.config['optimize'] = {'threading': False, \
+                                       'preload': False,
+                                       'network': {'so_sndbuf': None, \
+                                                   'so_rcvbuf': None}}
+        if 'network' not in self.config:
+            self.config['network'] = {'interface': None, \
+                                      'map': {'src_ip': 'SRC_IP_1', \
+                                              'repro_ip': 'REPRO_IP_1'}}
 
     def adjust_timestamps(self, packets, last_protocol_pkt_time):
         # Reference time for delay handling
@@ -149,7 +170,7 @@ class PcapProcessing:
 
         # Adapt config file for reproducing and export
         self.adapt_config_for_repro()
-        print(self.config)
+        #print(self.config)
         file=open(self.out_config, "w")
         yaml.dump(self.config, file, sort_keys=False)
         file.close()

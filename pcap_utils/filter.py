@@ -7,8 +7,8 @@
 # External Libraries
 from scapy.all import IP, IPv6, TCP, UDP, raw
 from scapy.layers.netflow import NetflowHeader
-from scapy.contrib.bgp import BGPHeader
-from pcap_utils.bmp_scapy.bmp import BMPHeader
+from scapy.contrib.bgp import BGP, BGPHeader
+from pcap_utils.bmp_scapy.bmp import BMP, BMPHeader
 
 def filter_generator(flt):
     if flt is None:
@@ -61,7 +61,7 @@ def bgp_msg_filter_generator(flt):
         if 'bgp' in flt:
           
             for f in flt['bgp']:
-                if getattr(BGPHeader(raw(pkt)), f) not in flt['bgp'][f]:
+                if getattr(BGP(raw(pkt)), f) not in flt['bgp'][f]:
                     return False
 
         return True
@@ -77,7 +77,7 @@ def bmp_msg_filter_generator(flt):
         if 'bmp' in flt:
           
             for f in flt['bmp']:
-                if getattr(BMPHeader(raw(pkt)), f) not in flt['bmp'][f]:
+                if getattr(BMP(raw(pkt)), f) not in flt['bmp'][f]:
                     return False
 
         return True
