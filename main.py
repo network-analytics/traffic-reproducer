@@ -24,7 +24,7 @@ from client import Client
 from packet_manager import PacketManager, PacketWithMetadata
 from report import report
 from proto import Proto
-from pcap_processing import PcapProcessing
+from process_pcap import PcapProcessing
 
 def parse_args():
     parser = argparse.ArgumentParser(

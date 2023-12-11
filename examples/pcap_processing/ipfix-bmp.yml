@@ -30,7 +30,7 @@ IPFIX:
       src: 198.51.100.44
     udp:
       dport: 9992
-    cflow:
+    ipfix:
       version:
       - 9   # NetFlow v9
       - 10  # IPFIX

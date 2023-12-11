@@ -14,12 +14,13 @@ import logging
 import pathlib
 import os
 from time import time, sleep
-from scapy.all import Ether, IP, IPv6, TCP, Raw, raw, rdpcap, PacketList, EDecimal
+from scapy.all import Ether, IP, IPv6, TCP, Raw, raw, rdpcap, PacketList
 from scapy.layers.l2 import *
 from scapy.contrib.mpls import *
 
 # Internal Libraries
-from pcap_utils.scapy_helpers import get_layers, tcp_fragment, tcp_build
+from pcap_utils.process_proto import ProtoProcessing
+from pcap_utils.scapy_helpers import get_layers, tcp_fragment, tcp_build, adjust_timestamps
 from pcap_utils.filter import filter_generator, bmp_msg_filter_generator
 from pcap_utils.bmp_scapy.bmp import *
 
@@ -31,10 +32,12 @@ class BMPSession:
         self.ip_dst = ip_dst
         self.bmp_packets = []
 
-class BMPProcessing:
+class BMPProcessing(ProtoProcessing):
+    def __init__(self, proto, pcap_file, selectors):
+        ProtoProcessing.__init__(self, proto, pcap_file, selectors)
 
-    def __init__(self, pcap_file, bmp_selectors):
-
+        #   self.info() template:
+        #
         #   "ip_src": { ...
         #       "bmp_version": 
         #       "sysDescr": 
@@ -46,51 +49,25 @@ class BMPProcessing:
         #                                       "stats_counter":    },
         #                        ... }
         #               ... }
-        self.info = {}
 
         # List of BMPSession() instances
-        self.bmp_sessions = [] 
+        self.bmp_sessions = []
 
-        self.bmp_selectors = bmp_selectors
-
-        # Extract BMP packets by TCP session and populate self.bmp_sessions
-        packets = self.__bmp_extract(pcap_file)
-        packets = self.__bmp_sessions_cleanup(packets)
-        self.__bmp_sessions_defragment(packets)   
+        # Extract and cleanup BMP sessions from self.packets
+        self.__bmp_sessions_cleanup()
+        self.__bmp_sessions_defragment() 
         
         # Some more filtering on BMP layers
         self.__bmp_apply_additional_filters()
 
-
-    def __bmp_extract(self, pcap_file):
-        # Extract BMP packets with filter selectors
-
-        packets_new = []
-
-        # Load pcap in memory
-        packets = rdpcap(pcap_file)
-        logging.info(f"Size of packets: {len(packets)}") 
-        
-        # Generate filter from selectors
-        logging.debug(f"bmp_selectors: {self.bmp_selectors}")
-        proto_filter = filter_generator(self.bmp_selectors)
-
-        for packet in packets:
-            if proto_filter(packet):
-                packets_new.append(packet)
-
-        logging.debug(f"Size of filtered packets [BMP selector]: {len(packets_new)}")
-
-        return PacketList(packets_new)
-
-    def __bmp_sessions_cleanup(self, packets):
+    def __bmp_sessions_cleanup(self):
         # Select clean BMP sessions only
         #  --> discard all messages before BMP INIT is received
         #  --> discard incomplete sessions (i.e. without any INIT)
         #  --> discard too small packets
 
         packets_new = []
-        tcp_sessions = packets.sessions()
+        tcp_sessions = self.packets.sessions()
         
         for session_id, plist in tcp_sessions.items():
             keep_session = False
@@ -107,13 +84,13 @@ class BMPProcessing:
                     if keep_session and len(bmp_packet) >= 6: 
                         packets_new.append(packet)
 
-        return PacketList(packets_new)
+        self.packets = PacketList(packets_new)
 
-    def __bmp_sessions_defragment(self, packets):
+    def __bmp_sessions_defragment(self):
         # BMP messages defragment
 
-        tcp_sessions = packets.sessions()
-        tcp_port = self.bmp_selectors['tcp']['dport']
+        tcp_sessions = self.packets.sessions()
+        tcp_port = self.selectors['tcp']['dport']
         
         # Process all BMP sessions
         for session_id, plist in tcp_sessions.items():
@@ -180,7 +157,7 @@ class BMPProcessing:
         # i.e. BMP msg type
 
         # Generate filter from selectors
-        proto_filter = bmp_msg_filter_generator(self.bmp_selectors)
+        proto_filter = bmp_msg_filter_generator(self.selectors)
 
         for i in range(len(self.bmp_sessions)):
 
@@ -255,7 +232,7 @@ class BMPProcessing:
 
                 # BMP PEER DOWN & OTHERS (TODO: implement if necessary...)
 
-    def tcp_build_wrapper(self):
+    def tcp_build_wrapper_BMP(self):
         # - groups messages by msg_type
         # - calls tcp_build helper to construct TCP segments s.t. MTU ~= 1500
         # - calls tcp_fragment to make sure MTU < 1500
@@ -270,7 +247,7 @@ class BMPProcessing:
                 if (bmp_packet[BMPHeader].type != msg_type and payloads):
                     tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bmp_session.ip_ver,
                                                           bmp_session.ip_src, bmp_session.ip_dst,
-                                                          self.bmp_selectors['tcp']['dport'],
+                                                          self.selectors['tcp']['dport'],
                                                           tcp_seq_nr)
                     tcp_packets += tmp_tcp_packets
                     payloads = [bmp_packet]
@@ -281,25 +258,13 @@ class BMPProcessing:
             if (payloads): 
                 tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bmp_session.ip_ver,
                                                       bmp_session.ip_src, bmp_session.ip_dst,
-                                                      self.bmp_selectors['tcp']['dport'],
+                                                      self.selectors['tcp']['dport'],
                                                       tcp_seq_nr)
                 tcp_packets += tmp_tcp_packets
 
-        tcp_packets = tcp_fragment(PacketList(tcp_packets), self.bmp_selectors['tcp']['dport'])
+        tcp_packets = tcp_fragment(PacketList(tcp_packets), self.selectors['tcp']['dport'])
                 
-        return tcp_packets
-
-    def adjust_timestamps(self, packets, inter_packet_delay):
-        packets_new = []
-        reference_time = EDecimal(1672534800.000)
-        pkt_counter = 0
-
-        for pkt in packets:
-            pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
-            packets_new.append(pkt)
-            pkt_counter += 1
-        
-        return packets_new
+        self.packets = PacketList(tcp_packets)
 
     def prep_for_repro(self, inter_packet_delay=0.001):
 
@@ -307,11 +272,11 @@ class BMPProcessing:
         self.bmp_session_info()
 
         # Reconstruct TCP segments s.t. MTU~=1500 (<1500)
-        packets = self.tcp_build_wrapper()
+        self.tcp_build_wrapper_BMP()
 
         # Adjust timestamps
-        packets = self.adjust_timestamps(packets, inter_packet_delay)
+        self.packets = adjust_timestamps(self.packets, inter_packet_delay)
 
         # temp only produce bgp messages as is to check if correct...
-        logging.info(f"Size of processed BMP packets: {len(packets)}") 
-        return [self.info, packets]
+        logging.info(f"Size of processed BMP packets: {len(self.packets)}") 
+        return [self.info, self.packets]

@@ -41,11 +41,11 @@ def filter_generator(flt):
                 if not getattr(pkt[UDP], f) == flt['udp'][f]:
                     return False
 
-        if 'cflow' in flt:
+        if 'ipfix' in flt:
             if UDP not in pkt:
                 return False
-            for f in flt['cflow']:
-                if getattr(NetflowHeader(raw(pkt[UDP].payload)), f) not in flt['cflow'][f]:
+            for f in flt['ipfix']:
+                if getattr(NetflowHeader(raw(pkt[UDP].payload)), f) not in flt['ipfix'][f]:
                     return False
 
         return True

@@ -17,7 +17,8 @@ from scapy.all import PacketList, EDecimal
 
 # Internal Libraries
 from proto import Proto
-from pcap_utils.process_ipfix import IpfixProcessing
+from pcap_utils.process_proto import ProtoProcessing
+from pcap_utils.process_ipfix import IPFIXProcessing
 from pcap_utils.process_bgp import BGPProcessing
 from pcap_utils.process_bmp import BMPProcessing
 
@@ -51,63 +52,7 @@ class PcapProcessing:
         self.out_pcap = self.out_folder + "/traffic.pcap"
         self.out_config = self.out_folder + "/traffic-reproducer.yml"
         self.out_info = self.out_folder + "/traffic-info.json"
-
-    def process_ipfix(self):
-        logging.info("Processing IPFIX...")
-        ipfix_p = IpfixProcessing(self.config['pcap'], 
-                                  self.config['IPFIX']['select'])
-
-        [info, packets] = ipfix_p.prep_for_repro(self.inter_packet_delay)
-                                                 
-        self.out_info_dict["IPFIX/NetFlow Information"] = info
-
-        # Adapt config and add defaults if missing (for repro)
-        self.config['IPFIX']['select'].pop('ip', None)
-        self.config['IPFIX']['select'].pop('cflow', None)
-        if 'collector' not in self.config['IPFIX']:
-            self.config['IPFIX']['collector'] = {'ip': 'COLLECTOR_IP',\
-                                                 'port': 'COLLECTOR_IPFIX_PORT'}
-        return packets
-
-    def process_bgp(self):
-        logging.info("Processing BGP...")
-        bgp_p = BGPProcessing(self.config['pcap'], 
-                              self.config['BGP']['select'])
-
-        [info, packets] = bgp_p.prep_for_repro(self.inter_packet_delay)
-
-        self.out_info_dict["BGP Information"] = info
-
-        # Adapt config and add defaults if missing (for repro)
-        self.config['BGP']['select'].pop('ip', None)
-        self.config['BGP']['select'].pop('bgp', None)
-        if 'collector' not in self.config['BGP']:
-            self.config['BGP']['collector'] = {'ip': 'COLLECTOR_IP',\
-                                              'port': 'COLLECTOR_BGP_PORT'}
-        return packets
-
-    def process_bmp(self):
-        logging.info("Processing BMP...")
-        bmp_p = BMPProcessing(self.config['pcap'], 
-                              self.config['BMP']['select'])
-
-        [info, packets] = bmp_p.prep_for_repro(self.inter_packet_delay)
-
-        self.out_info_dict["BMP Information"] = info
-
-        # Adapt config and add defaults if missing (for repro)
-        self.config['BMP']['select'].pop('ip', None)
-        self.config['BMP']['select'].pop('bmp', None)
-        if 'collector' not in self.config['BMP']:
-            self.config['BMP']['collector'] = {'ip': 'COLLECTOR_IP',\
-                                              'port': 'COLLECTOR_BGP_PORT'}
-        return packets
-
-    def process_proto(self, proto_name):
-        if proto_name == 'IPFIX': return self.process_ipfix()
-        elif proto_name == 'BGP': return self.process_bgp()
-        elif proto_name == 'BMP': return self.process_bmp()
-  
+          
     
     def adapt_config_for_repro(self):
         # Remove pcap_processing section
@@ -130,8 +75,8 @@ class PcapProcessing:
                                                    'so_rcvbuf': None}}
         if 'network' not in self.config:
             self.config['network'] = {'interface': None, \
-                                      'map': {'src_ip': 'SRC_IP_1', \
-                                              'repro_ip': 'REPRO_IP_1'}}
+                                      'map': {'src_ip': '<MISSING_PARAM>', \
+                                              'repro_ip': '<MISSING_PARAM>'}}
 
     def adjust_timestamps(self, packets, last_protocol_pkt_time):
         # Reference time for delay handling
@@ -158,7 +103,19 @@ class PcapProcessing:
         packets = []
         for proto in [proto for proto in self.config if proto in supported_protos]:
 
-            proto_packets = self.process_proto(proto)
+            logging.info(f"Processing {proto}")
+            pp = ProtoProcessing.get_subclass(proto, 
+                                              self.config['pcap'], 
+                                              self.config[proto]['select'])
+
+            [info, proto_packets] = pp.prep_for_repro(self.inter_packet_delay)                                                
+            self.out_info_dict[proto + " Information"] = info
+
+            # Adjust (proto-specific) config for parameters reproduction
+            self.config[proto]['select'].pop('ip', None)
+            self.config[proto]['select'].pop(proto.lower(), None)
+            if 'collector' not in self.config[proto]:
+                self.config[proto]['collector'] = {'ip': '<MISSING_PARAM>','port': '<MISSING_PARAM>'}
 
             if packets:
                 proto_packets = self.adjust_timestamps(proto_packets, packets[-1].time)
@@ -168,7 +125,7 @@ class PcapProcessing:
         # Export processed packets
         wrpcap(self.out_pcap, packets)
 
-        # Adapt config file for reproducing and export
+        # Adjust (generic) config parameters for repro
         self.adapt_config_for_repro()
         #print(self.config)
         file=open(self.out_config, "w")

@@ -23,6 +23,7 @@ import scapy.contrib.bgp
 scapy.contrib.bgp.bgp_module_conf.use_2_bytes_asn = False
 
 # Internal Libraries
+from pcap_utils.process_proto import ProtoProcessing
 from pcap_utils.scapy_helpers import get_layers, tcp_build, tcp_fragment
 from pcap_utils.filter import filter_generator, bgp_msg_filter_generator
 
@@ -34,10 +35,12 @@ class BGPSession:
         self.ip_dst = ip_dst
         self.bgp_packets = []
 
-class BGPProcessing:
+class BGPProcessing(ProtoProcessing):
+    def __init__(self, proto, pcap_file, selectors):
+        ProtoProcessing.__init__(self, proto, pcap_file, selectors)
 
-    def __init__(self, pcap_file, bgp_selectors):
-
+        #   self.info() template:
+        #
         #   "ip_src": { ...
         #         "bgp_version": 
         #         "bgp_id":
@@ -48,50 +51,25 @@ class BGPProcessing:
         #         "keepalive_counter":
         #         "route_refresh_counter": 
         #                        ... }
-        self.info = {}
 
         # List of BGPSession() instances
         self.bgp_sessions = [] 
 
-        self.bgp_selectors = bgp_selectors
-
-        # Initial BGP processing
-        packets = self.__bgp_extract(pcap_file)
-        packets = self.__bgp_sessions_cleanup(packets)
-        self.__bgp_sessions_defragment(packets)
+        # Extract and cleanup BGP sessions from self.packets
+        self.__bgp_sessions_cleanup()
+        self.__bgp_sessions_defragment()
 
         # Some more filtering on BGP layers
         self.__bgp_apply_additional_filters()
 
-    def __bgp_extract(self, pcap_file):
-        # Extract BGP packets with filter selectors
-
-        packets_new = []
-
-        # Load pcap in memory
-        packets = rdpcap(pcap_file)
-        logging.info(f"Size of packets: {len(packets)}") 
-        
-        # Generate filter from selectors
-        logging.debug(f"bgp_selectors: {self.bgp_selectors}")
-        proto_filter = filter_generator(self.bgp_selectors)
-
-        for packet in packets:
-            if proto_filter(packet):
-                packets_new.append(packet)
-
-        logging.debug(f"Size of filtered packets [BGP selector]: {len(packets_new)}")
-
-        return PacketList(packets_new)
-
-    def __bgp_sessions_cleanup(self, packets):
+    def __bgp_sessions_cleanup(self):
         # Select clean BGP sessions only
         #  --> discard all messages before BGP OPEN is received
         #  --> discard incomplete sessions (i.e. without any OPEN)
         #  --> discard too small packets
 
         packets_new = []
-        tcp_sessions = packets.sessions()
+        tcp_sessions = self.packets.sessions()
         
         for session_id, plist in tcp_sessions.items():
             keep_session = False
@@ -108,13 +86,13 @@ class BGPProcessing:
                     if keep_session and len(bgp_packet) >= 6: 
                         packets_new.append(packet)
 
-        return PacketList(packets_new)
+        self.packets = PacketList(packets_new)
 
-    def __bgp_sessions_defragment(self, packets):
+    def __bgp_sessions_defragment(self):
         # BGP messages defragment
 
-        tcp_sessions = packets.sessions()
-        tcp_port = self.bgp_selectors['tcp']['dport']
+        tcp_sessions = self.packets.sessions()
+        tcp_port = self.selectors['tcp']['dport']
         
         # Process all BGP sessions
         for session_id, plist in tcp_sessions.items():
@@ -187,7 +165,7 @@ class BGPProcessing:
         # i.e. BGP msg type
 
         # Generate filter from selectors
-        proto_filter = bgp_msg_filter_generator(self.bgp_selectors)
+        proto_filter = bgp_msg_filter_generator(self.selectors)
 
         for i in range(0, len(self.bgp_sessions)):
 
@@ -272,7 +250,7 @@ class BGPProcessing:
                     self.info[str(bgp_session.ip_src)]['keepalives_counter'] += 1
 
 
-    def tcp_build_wrapper(self):
+    def tcp_build_wrapper_BGP(self):
         # - groups messages by msg_type
         # - calls tcp_build helper to construct TCP segments s.t. MTU ~= 1500
         # - calls tcp_fragment to make sure MTU < 1500
@@ -292,7 +270,7 @@ class BGPProcessing:
                 if (msg_type != prev_msg_type and payloads):
                     tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bgp_session.ip_ver,
                                                           bgp_session.ip_src, bgp_session.ip_dst,
-                                                          self.bgp_selectors['tcp']['dport'],
+                                                          self.selectors['tcp']['dport'],
                                                           tcp_seq_nr)
                     tcp_packets += tmp_tcp_packets
                     payloads = [bgp_packet] # initialize new payloads list
@@ -303,21 +281,21 @@ class BGPProcessing:
             if (payloads): 
                 tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bgp_session.ip_ver,
                                                       bgp_session.ip_src, bgp_session.ip_dst,
-                                                      self.bgp_selectors['tcp']['dport'],
+                                                      self.selectors['tcp']['dport'],
                                                       tcp_seq_nr)
                 tcp_packets += tmp_tcp_packets
 
-        tcp_packets = tcp_fragment(PacketList(tcp_packets), self.bgp_selectors['tcp']['dport'])
+        tcp_packets = tcp_fragment(PacketList(tcp_packets), self.selectors['tcp']['dport'])
                 
-        return tcp_packets
+        self.packets = PacketList(tcp_packets)
 
 
-    def adjust_timestamps(self, packets, inter_packet_delay):
+    def adjust_timestamps_BGP(self, inter_packet_delay):
         packets_new = []
         reference_time = EDecimal(1672534800.000)
         pkt_counter = 0
 
-        for pkt in packets:
+        for pkt in self.packets:
             pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
             packets_new.append(pkt)
             pkt_counter += 1
@@ -327,7 +305,7 @@ class BGPProcessing:
             if (pkt[TCP].seq == 1 and raw(pkt[TCP].payload)[18]) == 1:
                 reference_time += EDecimal(1)
 
-        return packets_new
+        self.packets = PacketList(packets_new)
 
 
     def prep_for_repro(self, inter_packet_delay=0.001):
@@ -336,11 +314,11 @@ class BGPProcessing:
         self.bgp_session_info()
 
         # Reconstruct TCP segments s.t. MTU~=1500 (<1500)
-        packets = self.tcp_build_wrapper()
+        self.tcp_build_wrapper_BGP()
 
         # Adjust timestamps
-        packets = self.adjust_timestamps(packets, inter_packet_delay)
+        self.adjust_timestamps_BGP(inter_packet_delay)
 
         # temp only produce bgp messages as is to check if correct...
-        logging.info(f"Size of processed BGP packets: {len(packets)}") 
-        return [self.info, packets]
+        logging.info(f"Size of processed BGP packets: {len(self.packets)}") 
+        return [self.info, self.packets]

@@ -8,7 +8,7 @@
 import logging, random
 
 # External Libraries
-from scapy.all import Ether, IP, IPv6, TCP, Raw, raw
+from scapy.all import Ether, IP, IPv6, TCP, Raw, raw, EDecimal, PacketList
 
 def get_layers(packet, do_print=False, layer_limit=100):
     layers = []
@@ -23,6 +23,19 @@ def get_layers(packet, do_print=False, layer_limit=100):
     if do_print: print(layers)
 
     return layers
+
+def adjust_timestamps(packets, inter_packet_delay):
+    # Replace all packets timestamp starting from reference with some inter-packet delay
+    packets_new = []
+    reference_time = EDecimal(1672534800.000)
+    pkt_counter = 0
+
+    for pkt in packets:
+        pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
+        packets_new.append(pkt)
+        pkt_counter += 1
+    
+    return PacketList(packets_new)
 
 def ether_replace(packets):
     # Replace src and dst MAC address with random ones
