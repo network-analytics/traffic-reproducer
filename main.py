@@ -19,11 +19,12 @@ from queue import Queue
 from scapy.all import IP, IPv6, TCP, UDP, raw, Raw
 
 # Internal Libraries
-from filter import filter_generator
+from pcap_utils.filter import filter_generator
 from client import Client
 from packet_manager import PacketManager, PacketWithMetadata
 from report import report
 from proto import Proto
+from process_pcap import PcapProcessing
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -37,12 +38,12 @@ def parse_args():
         type=pathlib.Path,
         dest='cfg',
         required=True,
-        help="YAML configuration file path \n  --> set IPs and other parameters, look at examples folder for some sample configs",
+        help="YAML configuration file path \n  --> set IPs and other parameters for reproduction, look at examples folder for some sample configs",
     )
 
     parser.add_argument(
         '-v', '--verbose',
-        help="Set log level to INFO \n  --> default=WARNING, unless -d/--debug flag is used",
+        help="Set log level to INFO \n  --> default log level is WARNING, unless -d/--debug flag is used",
         action="store_const",
         dest="loglevel",
         const=logging.INFO,
@@ -51,15 +52,24 @@ def parse_args():
 
     parser.add_argument(
         '-d', '--debug',
-        help="Set log level to DEBUG \n  --> default=WARNING, unless -v/--verbose flag is used",
+        help="Set log level to DEBUG \n  --> default log level is WARNING, unless -v/--verbose flag is used",
         action="store_const",
         dest="loglevel",
         const=logging.DEBUG,
     )
 
     parser.add_argument(
+        '-p', '--pcap-proc',
+        help="Enable pcap pre-processing before reproducing \n  --> can also be used as standalone feature (pre-process and produce output pcap without reproducing) \n  --> requires pcap_processing entry in the config file, look at examples folder for some sample configs",
+        action="store_const",
+        dest="pcap_processing",
+        const=True,
+        default=False,
+    )
+
+    parser.add_argument(
         '--no-sync',
-        help="Disable IPFIX bucket sync to the next full minute \n  --> default=False, argument also configurable through the config file [args OR config]",
+        help="Disable IPFIX bucket synchronization to the next full minute \n  --> also configurable through the config file [args OR config]",
         action="store_const",
         dest="nosync",
         const=True,
@@ -68,7 +78,7 @@ def parse_args():
 
     parser.add_argument(
         '--keep-open',
-        help="Do not close the TCP connection when finished replaying pcap \n  --> default=False, argument also configurable through the config file [args OR config]",
+        help="Keep the TCP connections open when finishing the pcap reproduction \n  --> also configurable through the config file [args OR config]",
         action="store_const",
         dest="keep_open",
         const=True,
@@ -81,6 +91,29 @@ def parse_args():
 def parse_config_file(cfg):
     with open(cfg, "r") as stream:
         return yaml.safe_load(stream)
+
+# Pre-processing of the pcap file(s) s.t. it we can reproduce clean sessions with the reproducer
+def pcap_processing(args, config):
+    if 'pcap_processing' in config:
+
+        exit_flag = config['pcap_processing']['exit']
+
+        # Start pcap processing
+        pp = PcapProcessing(config=config)
+        pp_config = pp.start()
+
+        # Exit if we only want pcap process 
+        if exit_flag:
+            logging.info("Exiting (exit=yes in config file)...")
+            sys.exit()
+        
+        # Replace config with new one and continue with reproduction
+        logging.info("Starting repro...") 
+        return pp_config
+
+    else:
+        logging.critical(f"No pcap_processing entry provided in config file ({args.cfg}), exiting...")
+        sys.exit()
 
 # create src_ip -> repro_ip mapping
 def create_ip_map(network_map):
@@ -96,9 +129,9 @@ def create_ip_map(network_map):
 
 # Compute the inter-packet sleeping time based on inter-packet delay in the pcap
 def sleep_between_pkts(packet, real_start_time, pcap_start_time, time_factor):
-    ellapsed_real_time = time() - real_start_time
-    ellapsed_pcap_time = float(packet.time - pcap_start_time)
-    theoretical_sleep_time = ellapsed_pcap_time * time_factor - ellapsed_real_time
+    elapsed_real_time = time() - real_start_time
+    elapsed_pcap_time = float(packet.time - pcap_start_time)
+    theoretical_sleep_time = elapsed_pcap_time * time_factor - elapsed_real_time
 
     # Reporting delay to give an idea if repro is behind schedule given by pcap intervals
     report.set_delay(min(theoretical_sleep_time, 0))  
@@ -107,34 +140,43 @@ def sleep_between_pkts(packet, real_start_time, pcap_start_time, time_factor):
     sleep_time = round(max(theoretical_sleep_time, 0),3)
 
     # Some debug logs
-    logging.debug(f"Ellapsed pcap time: {ellapsed_pcap_time}")
-    logging.debug(f"Ellapsed real time: {ellapsed_real_time}")
+    logging.debug(f"Elapsed pcap time: {elapsed_pcap_time}")
+    logging.debug(f"Elapsed real time: {elapsed_real_time}")
     logging.debug(f"Multiplicative time factor: {time_factor}")
     logging.debug(f"Sleep time: {sleep_time}s [in 1ms steps]")
 
     return sleep_time
 
-
 def main():
     # parse arguments
     args = parse_args()
 
+    # initialize logging
     logging.basicConfig(level=args.loglevel)
 
     # parse test config file
     config = parse_config_file(args.cfg)
 
+    # execute pcap pre-processing if required
+    if args.pcap_processing:
+        config = pcap_processing(args, config)
+
     # check if we want multithreading enabled
     is_threading = config['optimize']['threading']
 
-    # gather list of supported protocol from Proto class
+    # protocol selectors
     supported_protos = [e.value for e in Proto]
+    selectors = {}
+    for proto in [proto for proto in supported_protos if proto in config]: 
+        if 'select' in config[proto]:
+            logging.info(f"{proto} repro selectors: {config[proto]['select']}")
+            selectors[proto] = filter_generator(config[proto]['select'])
+        else: 
+            logging.info(f"{proto} repro selectors not defined: select all packets")
+            selectors[proto] = filter_generator(False)
 
     # create src_ip -> repro_ip mapping (IP map)
     ip_map = create_ip_map(config['network']['map'])
-
-    # protocol selectors
-    selectors = {proto: filter_generator(config[proto]['select']) for proto in supported_protos if proto in config}
 
     # map of clients
     clients = {}
@@ -186,6 +228,7 @@ def main():
         preload=config['optimize']['preload']
     )
 
+    # start loop on pcap's packets
     packetwm: PacketWithMetadata
     for packetwm in pm:
         packet = packetwm.packet

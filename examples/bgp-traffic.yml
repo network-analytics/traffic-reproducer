@@ -21,7 +21,8 @@ network:
 bgp:
   select: 
     tcp:
-      dport: 179
+      dport:
+      - 179
   collector:                              # collector that will receive the reproduced messages
     ip: localhost 
     port: 179 

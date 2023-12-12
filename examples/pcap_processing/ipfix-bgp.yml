@@ -1,0 +1,64 @@
+---
+pcap: examples/pcap_processing/ipfix-bgp.pcap
+
+# Pre-processing settings
+pcap_processing:
+  exit: yes                
+  inter_packet_delay: 0.001
+  inter_protocol_delay: 1  
+
+# Reproduction settings (not used when only pre-processing)
+time_factor: 1
+keep_open: false
+no_sync: false
+
+optimize:
+  threading: false
+  preload: false
+  network:
+    so_sndbuf: null
+    so_rcvbuf: null
+
+network:
+  interface: null
+  map:
+  - src_ip:         198.51.100.44
+    repro_ip:       192.168.100.1
+
+# Protocols with filter selectors
+bgp:
+  select:
+    ip:
+      src: 
+      - 198.51.100.44
+    tcp:
+      dport: 
+      - 179
+    bgp_h: 
+      type: 
+      - 1 # OPEN
+      - 2 # UPDATE
+      - 3 # NOTIFICATION
+      - 4 # KEEPALIVE
+      - 5 # ROUTE-REFRESH
+
+  collector:
+    ip: 192.168.100.100
+    port: 179
+
+ipfix:
+  select:
+    ip:
+      src: 
+      - 198.51.100.44
+    udp:
+      dport: 
+      - 9992
+    ipfix_h:
+      version:
+      - 9   # NetFlow v9
+      - 10  # IPFIX
+
+  collector:
+    ip: 192.168.100.100
+    port: 9991

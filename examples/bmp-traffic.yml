@@ -21,7 +21,8 @@ network:
 bmp:
   select: 
     tcp:
-      dport: 1790
+      dport:
+      - 1790
   collector:                              # collector that will receive the reproduced messages
     ip: localhost
     port: 1790

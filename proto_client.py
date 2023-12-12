@@ -66,7 +66,7 @@ class GenericPClient:
         if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv4Address:
             s.bind((self.client.repro_ip, 0))
         elif type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
-            s.bind((self.client.repro_ip, 0, 0, 0)) # check: do we really need a 4-tuple?
+            s.bind((self.client.repro_ip, 0, 0, 0))
         s.connect((self.collector['ip'], self.collector['port']))
 
         self.socket = s
@@ -107,10 +107,10 @@ class BGPPClient(GenericPClient):
         bgp_payload = raw(packet[TCP].payload)
         return bgp_payload
 
-    # TODO: Understand why do we need this 
-    def send(self, packet, proto):
-        r = super().send(packet, proto)
-        return r
+#    # TODO: Understand why do we need this 
+#    def send(self, packet, proto):
+#        r = super().send(packet, proto)
+#        return r
 
 
 class BMPPClient(GenericPClient):

@@ -49,6 +49,12 @@ class PacketManager:
             return self
 
         # if preload, load, filter, and give type to all packets
+        # TODO: modify logs here a bit and also specify in the readme --> this is live processing, not offline processing
+        #       --> simply filter based on specified port 
+        #       --> is meant for increasing speed
+        #       --> (maybe if there is time) we could integrate this better when using pcap_processing:
+        #           --> i.e. since we already have the scapy objects in memory, just use those for reproducing...
+        #           --> also, if we just pre-processed and we're reproducing right (exit:no) away we don't need to go through here...
         logging.info('Preload is enabled - loading, filtering and preprocessing all packets - this might take a while')
         packets = rdpcap(self.pcap_path)
         logging.info('preload process: pcap loaded into the memory')
