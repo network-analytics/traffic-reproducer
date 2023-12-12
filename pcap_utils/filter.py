@@ -14,6 +14,12 @@ def filter_generator(flt):
     if flt is None:
         return None
 
+    def T(pkt):
+        return True
+
+    if flt is False:
+        return T
+
     def F(pkt):
         if 'ip' in flt:
             if IP not in pkt and IPv6 not in pkt:
@@ -41,7 +47,7 @@ def filter_generator(flt):
                 if not getattr(pkt[UDP], f) == flt['udp'][f]:
                     return False
 
-        if 'ipfix' in flt:
+        if 'ipfix' in flt: # TODO: add to separate filter function as well (then change in the yml from selector to advanced_filter#working only after defrag!) (or select_advanced maybe better naming)
             if UDP not in pkt:
                 return False
             for f in flt['ipfix']:
@@ -52,7 +58,7 @@ def filter_generator(flt):
     return F
 
 # Additional BGP specific filters
-#  --> can be applied only for deserialized BGP messages!
+#  --> can be applied only for defragmented BGP messages!
 def bgp_msg_filter_generator(flt):
     if flt is None:
         return None
@@ -68,7 +74,7 @@ def bgp_msg_filter_generator(flt):
     return F
 
 # Additional BMP specific filters
-#  --> can be applied only on deserialized BMP messages!
+#  --> can be applied only on defragmented BMP messages!
 def bmp_msg_filter_generator(flt):
     if flt is None:
         return None

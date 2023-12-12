@@ -166,7 +166,14 @@ def main():
 
     # protocol selectors
     supported_protos = [e.value for e in Proto]
-    selectors = {proto: filter_generator(config[proto]['select']) for proto in supported_protos if proto in config}
+    selectors = {}
+    for proto in [proto for proto in supported_protos if proto in config]: 
+        if 'select' in config[proto]:
+            logging.info(f"{proto} repro selectors: {config[proto]['select']}")
+            selectors[proto] = filter_generator(config[proto]['select'])
+        else: 
+            logging.info(f"{proto} repro selectors not defined: select all packets")
+            selectors[proto] = filter_generator(False)
 
     # create src_ip -> repro_ip mapping (IP map)
     ip_map = create_ip_map(config['network']['map'])

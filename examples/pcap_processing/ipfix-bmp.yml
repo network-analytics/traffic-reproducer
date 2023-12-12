@@ -11,7 +11,8 @@ pcap_processing:
 BMP:
   select: 
     ip:
-      src: 198.51.100.44
+      src: 
+      - 198.51.100.44
     tcp:
       dport: 1790
     bmp: 
@@ -27,7 +28,8 @@ BMP:
 IPFIX:
   select:
     ip:
-      src: 198.51.100.44
+      src: 
+      - 198.51.100.44
     udp:
       dport: 9992
     ipfix:

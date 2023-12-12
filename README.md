@@ -52,13 +52,33 @@ options:
 -----------------------
 ```
 
-## Generating a pcap file
+### Recording a pcap file
 
-TODO:
+You can use `tcpdump` tool in Linux to record a PCAP. The simplest command is as follows:
+
+```
+tcpdump -vvv -w one.pcap
+```
+
+This will record from a default interface any packet and will write a PCAP file into `one.pcap`. Thanks to `-vvv` you will see the number of packets captured so far
+
+A more realistic example is as follows:
+
+```
+tcpdump -vvv -i vrf300  -n host 10.0.0.1 -w ./two.pcap
+```
+
+With `-i vrf300` `tcpdump` listens only to interface named `vrf300`. With `-n host 10.0.0.1` `tcpdump` is going to filter packets coming from or going to IP 10.0.0.1.
 
 ### Pcap pre-processing
+Pre-processing the pcap file is not mandatory for reproduction. The purpose is to cleanup the pcap files so that they contain clean session and can be reproduced in a deterministic way to a collector (e.g. for test automation).
 
-TODO:
+Example call:
+```
+python main.py -d -p -t examples/pcap_processing/ipfix-bmp.yml
+```
+
+Have a look at this and some other example in [examples/pcap_processing](./examples/pcap_processing).
 
 ## Internals
 

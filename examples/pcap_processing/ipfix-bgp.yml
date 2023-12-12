@@ -29,7 +29,8 @@ network:
 BGP:
   select:
     ip:
-      src: 198.51.100.44
+      src: 
+      - 198.51.100.44
     tcp:
       dport: 179
     bgp: 
@@ -47,7 +48,8 @@ BGP:
 IPFIX:
   select:
     ip:
-      src: 198.51.100.44
+      src: 
+      - 198.51.100.44
     udp:
       dport: 9992
     cflow:

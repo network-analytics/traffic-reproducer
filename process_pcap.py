@@ -54,7 +54,7 @@ class PcapProcessing:
         self.out_info = self.out_folder + "/traffic-info.json"
           
     
-    def adapt_config_for_repro(self):
+    def adapt_config_for_repro(self, src_ips):
         # Remove pcap_processing section
         self.config.pop('pcap_processing')
 
@@ -74,9 +74,16 @@ class PcapProcessing:
                                        'network': {'so_sndbuf': None, \
                                                    'so_rcvbuf': None}}
         if 'network' not in self.config:
-            self.config['network'] = {'interface': None, \
-                                      'map': {'src_ip': '<MISSING_PARAM>', \
-                                              'repro_ip': '<MISSING_PARAM>'}}
+            if src_ips: 
+                for src_ip in src_ips:
+                    self.config['network'] = {'interface': None, \
+                                              'map': {'src_ip': src_ip, \
+                                                      'repro_ip': '<MISSING_PARAM>'}}
+            else: 
+                self.config['network'] = {'interface': None, \
+                                          'map': {'src_ip': '<MISSING_PARAM>', \
+                                                  'repro_ip': '<MISSING_PARAM>'}}
+                                                      
 
     def adjust_timestamps(self, packets, last_protocol_pkt_time):
         # Reference time for delay handling
@@ -101,6 +108,7 @@ class PcapProcessing:
         # Process protocols in the order provided in config file
         supported_protos = [e.value for e in Proto]
         packets = []
+        src_ips = []
         for proto in [proto for proto in self.config if proto in supported_protos]:
 
             logging.info(f"Processing {proto}")
@@ -112,10 +120,15 @@ class PcapProcessing:
             self.out_info_dict[proto + " Information"] = info
 
             # Adjust (proto-specific) config for parameters reproduction
-            self.config[proto]['select'].pop('ip', None)
-            self.config[proto]['select'].pop(proto.lower(), None)
             if 'collector' not in self.config[proto]:
                 self.config[proto]['collector'] = {'ip': '<MISSING_PARAM>','port': '<MISSING_PARAM>'}
+
+            # Get src ips if defined in selectors
+            if 'ip' in self.config[proto]['select'] and 'src' in self.config[proto]['select']['ip']:
+                src_ips = list(set(src_ips + [ip for ip in self.config[proto]['select']['ip']['src']]))
+
+            # Pop selectors
+            self.config[proto].pop('select', None)
 
             if packets:
                 proto_packets = self.adjust_timestamps(proto_packets, packets[-1].time)
@@ -126,7 +139,7 @@ class PcapProcessing:
         wrpcap(self.out_pcap, packets)
 
         # Adjust (generic) config parameters for repro
-        self.adapt_config_for_repro()
+        self.adapt_config_for_repro(src_ips)
         #print(self.config)
         file=open(self.out_config, "w")
         yaml.dump(self.config, file, sort_keys=False)
