@@ -9,8 +9,7 @@ Given a PCAP and a configuration file, this scapy-based tool can reproduce traff
 - Simulates multiple clients via multiple configurable IPs
 - Support for VRF in linux
 - Easy integration with new protocols
-- Extract clean IPFIX/BGP/BMP sessions from raw pcap captures before reproducing
-- Provide json summary of pcap content (protocol session details)
+- Provides pcap pre-processing functionality to extract clean IPFIX/BGP/BMP sessions from raw pcap captures (for deterministic repro)
 
 ## Feature Roadmap [Vision]
 - Pseudo-anonymization (ip, mac addresses)
@@ -73,16 +72,25 @@ With `-i vrf300` `tcpdump` listens only to interface named `vrf300`. With `-n ho
 ### Pcap pre-processing
 Pre-processing the pcap file is not mandatory for reproduction. The purpose is to cleanup the pcap files so that they contain clean session and can be reproduced in a deterministic way to a collector (e.g. for test automation).
 
-Example call:
+The following features are supported:
+- Extract BMP/BGP/IPFIX sessions from a pcap based on filter parameters (ip, port, ipfix version, bmp msg type, bgp msg type)
+- Ensure that only BGP sessions with an OPEN message are included, and also add some delay between BGP OPEN and the rest of the session (since some collectore will need some time to send the response, and since we are faking the BGP handshake we need to give time)
+- Ensure that only BMP sessions with an INIT message are included
+- Ensure that any IPFIX (data&option) record is discarded if the template is not present
+- Replace pcap timestamp starting from a reference (full-minute), with configurable inter-packet-time and inter-protocol-time
+- Provides json file with summary of pcap content (protocol session details)
+- Provides new pcap and sample config file for reproducing it
+
+Example call (-p flag triggers the pre-processing!):
 ```
 python main.py -d -p -t examples/pcap_processing/ipfix-bmp.yml
 ```
 
+The output files (pcap, config file, json info file) will be added in a new folder (in this case per default examples/pcap_processing/ipfix-bmp/, but this can also be modified as a config parameter).
+
 Have a look at this and some other example in [examples/pcap_processing](./examples/pcap_processing).
 
 ## Internals
-
-TODO:
 
 ### Time bucketing
 
