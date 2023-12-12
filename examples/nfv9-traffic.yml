@@ -18,10 +18,11 @@ network:
 
   interface: null                       # to use a VRF, give the vrf name
 
-IPFIX:
+ipfix:
   select:                               # select BGP packet in pcap based on the following two parameters. Use as "filter"
     udp:
-      dport: 9991
+      dport:
+      - 9991
   collector:                            # define the collector that will receive the reproduced messages
     ip: localhost
     port: 9991

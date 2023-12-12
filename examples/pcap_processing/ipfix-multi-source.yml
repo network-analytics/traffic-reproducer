@@ -8,7 +8,7 @@ pcap_processing:
   inter_protocol_delay: 1  
 
 # Protocols with filter selectors
-IPFIX:
+ipfix:
   select:
     ip:
       src: 
@@ -16,8 +16,9 @@ IPFIX:
       - 138.187.57.55
       - 10.10.0.33
     udp:
-      dport: 9991
-    cflow:
+      dport:
+      - 9991
+    ipfix_h:
       version:
       - 9   # NetFlow v9
       - 10  # IPFIX

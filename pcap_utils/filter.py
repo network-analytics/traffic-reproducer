@@ -37,21 +37,32 @@ def filter_generator(flt):
             if TCP not in pkt:
                 return False
             for f in flt['tcp']:
-                if not getattr(pkt[TCP], f) == flt['tcp'][f]:
+                if getattr(pkt[TCP], f) not in flt['tcp'][f]:
                     return False
 
         if 'udp' in flt:
             if UDP not in pkt:
                 return False
             for f in flt['udp']:
-                if not getattr(pkt[UDP], f) == flt['udp'][f]:
+                if getattr(pkt[UDP], f) not in flt['udp'][f]:
                     return False
 
-        if 'ipfix' in flt: # TODO: add to separate filter function as well (then change in the yml from selector to advanced_filter#working only after defrag!) (or select_advanced maybe better naming)
-            if UDP not in pkt:
-                return False
-            for f in flt['ipfix']:
-                if getattr(NetflowHeader(raw(pkt[UDP].payload)), f) not in flt['ipfix'][f]:
+        return True
+    return F
+
+# TODO: maybe change these additional filter functions in the yml from selector (e.g. selector_advanced?)
+
+# Additional IPFIX specific filters
+#  --> can be applied only for defragmented BGP messages!
+def ipfix_msg_filter_generator(flt):
+    if flt is None:
+        return None
+
+    def F(pkt):
+        if 'ipfix_h' in flt:
+          
+            for f in flt['ipfix_h']:
+                if getattr(NetflowHeader(raw(pkt[UDP].payload)), f) not in flt['ipfix_h'][f]:
                     return False
 
         return True
@@ -64,10 +75,10 @@ def bgp_msg_filter_generator(flt):
         return None
 
     def F(pkt):
-        if 'bgp' in flt:
+        if 'bgp_h' in flt:
           
-            for f in flt['bgp']:
-                if getattr(BGP(raw(pkt)), f) not in flt['bgp'][f]:
+            for f in flt['bgp_h']:
+                if getattr(BGP(raw(pkt)), f) not in flt['bgp_h'][f]:
                     return False
 
         return True
@@ -80,10 +91,10 @@ def bmp_msg_filter_generator(flt):
         return None
 
     def F(pkt):
-        if 'bmp' in flt:
+        if 'bmp_h' in flt:
           
-            for f in flt['bmp']:
-                if getattr(BMP(raw(pkt)), f) not in flt['bmp'][f]:
+            for f in flt['bmp_h']:
+                if getattr(BMP(raw(pkt)), f) not in flt['bmp_h'][f]:
                     return False
 
         return True

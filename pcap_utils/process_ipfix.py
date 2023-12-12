@@ -21,7 +21,7 @@ from scapy.contrib.mpls import *
 
 # Internal Libraries
 from pcap_utils.process_proto import ProtoProcessing
-from pcap_utils.filter import filter_generator
+from pcap_utils.filter import filter_generator, ipfix_msg_filter_generator
 from pcap_utils.scapy_helpers import get_layers, ether_replace, adjust_timestamps
 
 class IPFIXProcessing(ProtoProcessing):
@@ -41,6 +41,9 @@ class IPFIXProcessing(ProtoProcessing):
 
         self.__ipfix_defragment()
 
+        # Some more filtering on IPFIX layers
+        self.__ipfix_apply_additional_filters()
+
     def __ipfix_defragment(self):
         # Defragment IPFIX packets 
 
@@ -48,6 +51,20 @@ class IPFIXProcessing(ProtoProcessing):
         logging.debug(f"Size of defragmented IPFIX packets: {len(packets_new)}")
         
         self.packets = PacketList(packets_new)
+
+    def __ipfix_apply_additional_filters(self):
+        # Apply more advanced filters if provided in proto selectors, 
+        # i.e. IPFIX version
+
+        # Generate filter from selectors
+        proto_filter = ipfix_msg_filter_generator(self.selectors)
+
+        packets_new = []
+        for packet in self.packets:
+            if proto_filter(packet):
+                packets_new.append(packet)
+            
+        self.packets = packets_new
 
     # Add some info to self.info dict for v5 records
     def register_v5_info(self, ip_src, ipfix_packet):

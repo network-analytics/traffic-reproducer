@@ -29,7 +29,7 @@ network:
 
 
 # Protocols with filter selectors
-BGP:
+bgp:
   select:
     ip:
       src:
@@ -37,8 +37,9 @@ BGP:
       - 
       - 
     tcp:
-      dport: 179
-    bgp: 
+      dport: 
+      - 179
+    bgp_h: 
       type: 
       - 1 # OPEN
       - 2 # UPDATE

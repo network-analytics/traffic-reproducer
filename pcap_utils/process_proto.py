@@ -37,7 +37,7 @@ class ProtoProcessing:
     @classmethod
     def get_subclass(cls, proto, pcap_file, selectors):
         for c in cls.__subclasses__():
-            if c.__name__ == proto + "Processing":
+            if c.__name__ == proto.upper() + "Processing":
                 break
         else:
             raise ValueError("Unknown Protocol: {!r}".format(proto))

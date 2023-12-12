@@ -26,14 +26,15 @@ network:
     repro_ip:       192.168.100.1
 
 # Protocols with filter selectors
-BGP:
+bgp:
   select:
     ip:
       src: 
       - 198.51.100.44
     tcp:
-      dport: 179
-    bgp: 
+      dport: 
+      - 179
+    bgp_h: 
       type: 
       - 1 # OPEN
       - 2 # UPDATE
@@ -45,14 +46,15 @@ BGP:
     ip: 192.168.100.100
     port: 179
 
-IPFIX:
+ipfix:
   select:
     ip:
       src: 
       - 198.51.100.44
     udp:
-      dport: 9992
-    cflow:
+      dport: 
+      - 9992
+    ipfix_h:
       version:
       - 9   # NetFlow v9
       - 10  # IPFIX

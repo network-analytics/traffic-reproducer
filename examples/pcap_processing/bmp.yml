@@ -8,10 +8,11 @@ pcap_processing:
   inter_protocol_delay: 1
 
 # Protocols with filter selectors
-BMP:
+bmp:
   select: 
     ip: 
       src: 
       - 192.0.2.55
     tcp:
-      dport: 1790
+      dport:
+      - 1790

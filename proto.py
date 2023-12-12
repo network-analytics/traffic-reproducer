@@ -8,6 +8,6 @@
 from enum import Enum
 
 class Proto(Enum):
-    bgp = 'BGP'
-    bmp = 'BMP'
-    ipfix = 'IPFIX'
+    bgp = 'bgp'
+    bmp = 'bmp'
+    ipfix = 'ipfix'

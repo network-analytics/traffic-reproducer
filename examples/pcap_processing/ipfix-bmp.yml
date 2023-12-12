@@ -8,14 +8,15 @@ pcap_processing:
   inter_protocol_delay: 1
 
 # Protocols with filter selectors
-BMP:
+bmp:
   select: 
     ip:
       src: 
       - 198.51.100.44
     tcp:
-      dport: 1790
-    bmp: 
+      dport: 
+      - 1790
+    bmp_h: 
       type:
       - 0 # ROUTE MONITORING
       - 1 # STATS
@@ -25,14 +26,15 @@ BMP:
       - 5 # TERM
       - 6 # ROUTE MIRRORING
 
-IPFIX:
+ipfix:
   select:
     ip:
       src: 
       - 198.51.100.44
     udp:
-      dport: 9992
-    ipfix:
+      dport: 
+      - 9992
+    ipfix_h:
       version:
       - 9   # NetFlow v9
       - 10  # IPFIX
