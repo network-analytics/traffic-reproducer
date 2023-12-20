@@ -74,7 +74,7 @@ Pre-processing the pcap file is not mandatory for reproduction. The purpose is t
 
 The following features are supported:
 - Extract BMP/BGP/IPFIX sessions from a pcap based on filter parameters (ip, port, ipfix version, bmp msg type, bgp msg type)
-- Ensure that only BGP sessions with an OPEN message are included, and also add some delay between BGP OPEN and the rest of the session (since some collectore will need some time to send the response, and since we are faking the BGP handshake we need to give time)
+- Ensure that only BGP sessions with an OPEN message are included, and also add some delay between BGP OPEN and the rest of the session (since some collectors will need some time to send the response, and since we are faking the BGP handshake we need to give time)
 - Ensure that only BMP sessions with an INIT message are included
 - Ensure that any IPFIX (data&option) record is discarded if the template is not present
 - Replace pcap timestamp starting from a reference (full-minute), with configurable inter-packet-time and inter-protocol-time
