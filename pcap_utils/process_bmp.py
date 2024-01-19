@@ -14,7 +14,7 @@ import logging
 import pathlib
 import os
 from time import time, sleep
-from scapy.all import Ether, IP, IPv6, TCP, Raw, raw, rdpcap, PacketList
+from scapy.all import Ether, IP, IPv6, TCP, Raw, raw, rdpcap, PacketList, EDecimal
 from scapy.layers.l2 import *
 from scapy.contrib.mpls import *
 
@@ -169,14 +169,14 @@ class BMPProcessing(ProtoProcessing):
             self.bmp_sessions[i].bmp_packets = bmp_packets_new
 
 
-    def register_bgp_open(self, ip_src, peer_bgp_id, bgp_packet):
+    def register_bgp_open(self, ip_src, peer_bgp_id_str, bgp_packet):
 
-        self.info[str(ip_src)]['BGP_Peers'][str(peer_bgp_id)]['bgp_version'] = bgp_packet[BGPOpen].version
+        self.info[str(ip_src)]['BGP_Peers'][peer_bgp_id_str]['bgp_version'] = bgp_packet[BGPOpen].version
 
         # TODO: check capabilities if necessary
 
-        self.info[str(ip_src)]['BGP_Peers'][str(peer_bgp_id)]['route_monitoring_counter'] = 0
-        self.info[str(ip_src)]['BGP_Peers'][str(peer_bgp_id)]['stats_counter'] = 0
+        self.info[str(ip_src)]['BGP_Peers'][peer_bgp_id_str]['route_monitoring_counter'] = 0
+        self.info[str(ip_src)]['BGP_Peers'][peer_bgp_id_str]['stats_counter'] = 0
 
     def register_bmp_peerup(self, ip_src, bmp_packet):
 
@@ -187,8 +187,13 @@ class BMPProcessing(ProtoProcessing):
 
         if str(peer_bgp_id) not in self.info[str(ip_src)]['BGP_Peers'].keys():
             
+            # TODO: investigate better (corner case for FRR where we don't receive BGP_ID but 0.0.0.0 for local router BGP process in OPEN)
+            if str(peer_bgp_id) == '0.0.0.0': 
+                self.info[str(ip_src)]['BGP_Peers'][str(ip_src)] = {"as_number": bmp_packet[PerPeerHeader].peer_asn}
+                self.register_bgp_open(ip_src, str(ip_src), bmp_packet)
+
             self.info[str(ip_src)]['BGP_Peers'][str(peer_bgp_id)] = {"as_number": bmp_packet[PerPeerHeader].peer_asn}
-            self.register_bgp_open(ip_src, peer_bgp_id, bmp_packet)
+            self.register_bgp_open(ip_src, str(peer_bgp_id), bmp_packet)
 
     def register_bmp_init(self, ip_src, bmp_packet):
         self.info[str(ip_src)]['bmp_version'] = bmp_packet[BMPHeader].version
@@ -206,11 +211,11 @@ class BMPProcessing(ProtoProcessing):
         for bmp_session in self.bmp_sessions:
             if str(bmp_session.ip_src) not in self.info.keys():
                 self.info[str(bmp_session.ip_src)] = {}
-            
+
             for bmp_packet in bmp_session.bmp_packets:
 
                 # DEBUG PRINT:
-                #get_layers(bmp_packet, do_print=True, layer_limit=5)
+                get_layers(bmp_packet, do_print=True, layer_limit=5)
 
                 # BMP INIT
                 if bmp_packet.haslayer(BMPInitiation):
@@ -266,7 +271,29 @@ class BMPProcessing(ProtoProcessing):
                 
         self.packets = PacketList(tcp_packets)
 
-    def prep_for_repro(self, inter_packet_delay=0.001):
+    def adjust_timestamps_BMP(self, initial_delay, inter_packet_delay):
+        packets_new = []
+        reference_time = EDecimal(initial_delay + 1672534800.000)
+        pkt_counter = 0
+
+        for pkt in self.packets:
+            pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
+            packets_new.append(pkt)
+            pkt_counter += 1
+
+            # Check if we have a peer-up message, and add some delay before
+            if (raw(pkt[TCP].payload)[5] == 3):
+                self.packets[pkt_counter-1].time += EDecimal(2)
+                reference_time += EDecimal(2)
+
+            # Check if we have a peer-down message, and add some delay before
+            if (raw(pkt[TCP].payload)[5] == 2):
+                self.packets[pkt_counter-1].time += EDecimal(5)
+                reference_time += EDecimal(5)
+
+        self.packets = PacketList(packets_new)
+
+    def prep_for_repro(self, initial_delay=5, inter_packet_delay=0.001):
 
         # Get some info for self.info struct
         self.bmp_session_info()
@@ -275,7 +302,9 @@ class BMPProcessing(ProtoProcessing):
         self.tcp_build_wrapper_BMP()
 
         # Adjust timestamps
-        self.packets = adjust_timestamps(self.packets, inter_packet_delay)
+        #self.packets = adjust_timestamps(self.packets, initial_delay, inter_packet_delay)
+        self.adjust_timestamps_BMP(initial_delay, inter_packet_delay)
+
 
         # temp only produce bgp messages as is to check if correct...
         logging.info(f"Size of processed BMP packets: {len(self.packets)}") 

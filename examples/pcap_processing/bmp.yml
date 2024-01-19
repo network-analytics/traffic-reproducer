@@ -16,3 +16,12 @@ bmp:
     tcp:
       dport:
       - 1790
+    bmp_h: 
+      type:
+      - 0 # ROUTE MONITORING
+      - 1 # STATS
+      - 2 # PEER DOWN
+      - 3 # PEER UP
+      - 4 # INIT
+      - 5 # TERM
+      - 6 # ROUTE MIRRORING

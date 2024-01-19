@@ -75,7 +75,7 @@ class Report:
         logging.info("####################")
         if self.real_start_time is not None:
             curr_time = time()
-            logging.info(f'Ellapsed time: {round(curr_time - self.real_start_time, 3)}s')
+            logging.info(f'Elapsed time: {round(curr_time - self.real_start_time, 3)}s')
 
         table = PrettyTable([
             'metric',

@@ -24,10 +24,10 @@ def get_layers(packet, do_print=False, layer_limit=100):
 
     return layers
 
-def adjust_timestamps(packets, inter_packet_delay):
+def adjust_timestamps(packets, initial_delay, inter_packet_delay):
     # Replace all packets timestamp starting from reference with some inter-packet delay
     packets_new = []
-    reference_time = EDecimal(1672534800.000)
+    reference_time = EDecimal(initial_delay + 1672534800.000)
     pkt_counter = 0
 
     for pkt in packets:
