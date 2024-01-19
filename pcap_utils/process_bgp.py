@@ -290,9 +290,9 @@ class BGPProcessing(ProtoProcessing):
         self.packets = PacketList(tcp_packets)
 
 
-    def adjust_timestamps_BGP(self, inter_packet_delay):
+    def adjust_timestamps_BGP(self, initial_delay, inter_packet_delay):
         packets_new = []
-        reference_time = EDecimal(1672534800.000)
+        reference_time = EDecimal(initial_delay + 1672534800.000)
         pkt_counter = 0
 
         for pkt in self.packets:
@@ -308,7 +308,7 @@ class BGPProcessing(ProtoProcessing):
         self.packets = PacketList(packets_new)
 
 
-    def prep_for_repro(self, inter_packet_delay=0.001):
+    def prep_for_repro(self, initial_delay=5, inter_packet_delay=0.001):
 
         # Get some info for self.info struct
         self.bgp_session_info()
@@ -317,7 +317,7 @@ class BGPProcessing(ProtoProcessing):
         self.tcp_build_wrapper_BGP()
 
         # Adjust timestamps
-        self.adjust_timestamps_BGP(inter_packet_delay)
+        self.adjust_timestamps_BGP(initial_delay, inter_packet_delay)
 
         # temp only produce bgp messages as is to check if correct...
         logging.info(f"Size of processed BGP packets: {len(self.packets)}") 

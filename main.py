@@ -94,26 +94,23 @@ def parse_config_file(cfg):
 
 # Pre-processing of the pcap file(s) s.t. it we can reproduce clean sessions with the reproducer
 def pcap_processing(args, config):
+    exit_flag = True
     if 'pcap_processing' in config:
-
-        exit_flag = config['pcap_processing']['exit']
-
-        # Start pcap processing
-        pp = PcapProcessing(config=config)
-        pp_config = pp.start()
-
-        # Exit if we only want pcap process 
-        if exit_flag:
-            logging.info("Exiting (exit=yes in config file)...")
-            sys.exit()
+        if 'exit' in config['pcap_processing']:
+              exit_flag = config['pcap_processing']['exit']
         
-        # Replace config with new one and continue with reproduction
-        logging.info("Starting repro...") 
-        return pp_config
+    # Start pcap processing
+    pp = PcapProcessing(config=config)
+    pp_config = pp.start()
 
-    else:
-        logging.critical(f"No pcap_processing entry provided in config file ({args.cfg}), exiting...")
+    # Exit if we only want pcap process (default behaviour)
+    if exit_flag:
+        logging.info("Exiting (exit=yes)...")
         sys.exit()
+    
+    # Replace config with new one and continue with reproduction
+    logging.info("Starting repro...") 
+    return pp_config
 
 # create src_ip -> repro_ip mapping
 def create_ip_map(network_map):
@@ -137,7 +134,7 @@ def sleep_between_pkts(packet, real_start_time, pcap_start_time, time_factor):
     report.set_delay(min(theoretical_sleep_time, 0))  
 
     # Compute actual sleep_time (in 1ms intervals)
-    sleep_time = round(max(theoretical_sleep_time, 0),3)
+    sleep_time = round(max(theoretical_sleep_time - 0.01/time_factor, 0),3)
 
     # Some debug logs
     logging.debug(f"Elapsed pcap time: {elapsed_pcap_time}")

@@ -300,7 +300,7 @@ class IPFIXProcessing(ProtoProcessing):
         
         self.packets = packets_new
 
-    def prep_for_repro(self, inter_packet_delay=0.001):
+    def prep_for_repro(self, initial_delay=5, inter_packet_delay=0.001):
 
         # Gather Info and cleanup
         self.inspect_and_cleanup()
@@ -309,7 +309,7 @@ class IPFIXProcessing(ProtoProcessing):
         self.packets = ether_replace(self.packets)
 
         # Adjust timestamps
-        self.packets = adjust_timestamps(self.packets, inter_packet_delay)
+        self.packets = adjust_timestamps(self.packets, initial_delay, inter_packet_delay)
 
         logging.info(f"Size of processed IPFIX/NFv9 packets: {len(self.packets)}")
         return [self.info, self.packets]

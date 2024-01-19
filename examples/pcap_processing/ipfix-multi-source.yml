@@ -3,7 +3,6 @@ pcap: examples/pcap_processing/ipfix-multi-source.pcap
 
 # Pre-processing settings
 pcap_processing:
-  exit: yes                
   inter_packet_delay: 0.001
   inter_protocol_delay: 1  
 
