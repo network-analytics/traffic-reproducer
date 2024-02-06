@@ -56,6 +56,9 @@ def ether_replace(packets):
     return packets_new
 
 def tcp_fragment(packets, tcp_port):
+    # This function fragments packets longer that 1500bytes MTU
+    # (TCP payload < 1424)
+
     # Reconstruct packets (regenerate Ether/IP/TCP headers)
     packets_new = []
 
@@ -88,9 +91,9 @@ def tcp_fragment(packets, tcp_port):
             while len(raw_payload) > 0:
               
                 raw_payload_remaining = b''
-                if len(raw_payload) > 1440:
-                    raw_payload_remaining = raw_payload[1440:]
-                    raw_payload = raw_payload[:1440]
+                if len(raw_payload) > 1424:
+                    raw_payload_remaining = raw_payload[1424:]
+                    raw_payload = raw_payload[:1424]
 
                 # Add raw_payload to TCP frame
                 tcp_payload_size = len(raw_payload)
@@ -116,11 +119,12 @@ def tcp_fragment(packets, tcp_port):
 
     return packets_new
 
-def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port, tcp_seq_nr=1):
+def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port, tcp_seq_nr=1, tcp_payload_size=1424):
     # Construct packets (generate Ether/IP/TCP headers based on input arguments)
-    # This function will try to keep TCP packets len ~= 1500, but if there are single 
-    #    payloads that are >1500 this function does not fragment
-    #    --> If you want to make sure they're fragmented call tcp_fragment() after calling this
+    # This function will try to keep TCP payload len ~= tcp_payload_size (default=1424 s.t. MTU ~=< 1500),
+    # but if there are single payloads that are > tcp_payload_size this function does not fragment
+    # --> If you want to make sure they're strictly < tcp_payload_size, then
+    # s    call tcp_fragment() after calling this function
 
     packets_new = []
     src_mac = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255),
@@ -139,8 +143,8 @@ def tcp_build(payloads, ip_ver, ip_src, ip_dst, tcp_port, tcp_seq_nr=1):
         raw_payload = raw(payload)
         raw_len = len(raw_payload)
 
-        if raw_len + prev_len < 1440 or\
-           (prev_len == 0 and raw_len > 1440):
+        if raw_len + prev_len < tcp_payload_size or \
+           (prev_len == 0 and raw_len > tcp_payload_size):
 
             prev_payload += raw_payload
             prev_len += raw_len

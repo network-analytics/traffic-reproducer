@@ -33,6 +33,7 @@ class PcapProcessing:
         self.inter_packet_delay = 0.001
         self.inter_protocol_delay = 1
         self.out_folder = os.path.splitext(self.config['pcap'])[0]
+        self.tcp_payload_size = 1424
 
         if 'pcap_processing' in config:
             self.__set_args_from_config()
@@ -43,7 +44,7 @@ class PcapProcessing:
 
         self.__print_args()
 
-    # Set inter packet and inter protocols delays according to config
+    # Set arguments according to config
     def __set_args_from_config(self):
         if 'initial_delay' in self.config['pcap_processing']:
             self.initial_delay = self.config['pcap_processing']['initial_delay']
@@ -56,6 +57,9 @@ class PcapProcessing:
 
         if 'output_folder' in self.config['pcap_processing']:
             self.out_folder = self.config['pcap_processing']['output_folder']
+
+        if 'desired_tcp_payload_size' in self.config['pcap_processing']:
+            self.tcp_payload_size = self.config['pcap_processing']['desired_tcp_payload_size']
 
     def __print_args(self):
         logging.info(" ")
@@ -128,7 +132,7 @@ class PcapProcessing:
                                               self.config['pcap'], 
                                               self.config[proto]['select'])
 
-            [info, proto_packets] = pp.prep_for_repro(self.initial_delay, self.inter_packet_delay)                                                
+            [info, proto_packets] = pp.prep_for_repro(self.initial_delay, self.inter_packet_delay, self.tcp_payload_size)                                                
             self.out_info_dict[proto.upper() + " Information"] = info
 
             # Adjust (proto-specific) config for parameters reproduction

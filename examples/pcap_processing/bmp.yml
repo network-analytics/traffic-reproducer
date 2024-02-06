@@ -3,7 +3,7 @@ pcap: examples/pcap_processing/bmp.pcap
 
 # Pre-processing settings
 pcap_processing:
-  exit: yes                
+  initial_delay: 5
   inter_packet_delay: 0.001
   inter_protocol_delay: 1
 
