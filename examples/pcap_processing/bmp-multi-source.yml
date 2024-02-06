@@ -1,0 +1,46 @@
+---
+pcap: examples/pcap_processing/bmp-multi-source.pcap
+
+# Pre-processing settings
+pcap_processing:
+  initial_delay: 5
+  inter_packet_delay: 0.1
+  desired_tcp_payload_size: 500        # [default 1424bytes] best effort desired size (we don't fragment BMP/BGP messages to meet this requirement!) 
+                                       #                     (i.e. when we have single bmp/bgp messages that are longer than desired size)
+
+# Reproduction settings
+time_factor: 1
+keep_open: true
+no_sync: true
+
+network:
+  interface: null
+  map:
+  - src_ip:        2001:db8:90::1
+    repro_ip:      cafe::90
+  - src_ip:        2001:db8:91::1
+    repro_ip:      cafe::91
+
+# Protocols with filter selectors
+bmp:
+  select:
+    ip:
+      src:
+      - 2001:db8:90::1
+      - 2001:db8:91::1
+    tcp:
+      dport: 
+      - 1790
+    bmp_h: 
+      type:
+      - 0 # ROUTE MONITORING
+      - 1 # STATS
+      - 2 # PEER DOWN
+      - 3 # PEER UP
+      - 4 # INIT
+      - 5 # TERM
+      - 6 # ROUTE MIRRORING
+
+  collector:
+    ip: cafe::100
+    port: 1790

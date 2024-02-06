@@ -250,7 +250,7 @@ class BGPProcessing(ProtoProcessing):
                     self.info[str(bgp_session.ip_src)]['keepalives_counter'] += 1
 
 
-    def tcp_build_wrapper_BGP(self):
+    def tcp_build_wrapper_BGP(self, tcp_payload_size=1424):
         # - groups messages by msg_type
         # - calls tcp_build helper to construct TCP segments s.t. MTU ~= 1500
         # - calls tcp_fragment to make sure MTU < 1500
@@ -271,7 +271,8 @@ class BGPProcessing(ProtoProcessing):
                     tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bgp_session.ip_ver,
                                                           bgp_session.ip_src, bgp_session.ip_dst,
                                                           self.selectors['tcp']['dport'],
-                                                          tcp_seq_nr)
+                                                          tcp_seq_nr,
+                                                          tcp_payload_size)
                     tcp_packets += tmp_tcp_packets
                     payloads = [bgp_packet] # initialize new payloads list
                     prev_msg_type = msg_type
@@ -282,7 +283,8 @@ class BGPProcessing(ProtoProcessing):
                 tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bgp_session.ip_ver,
                                                       bgp_session.ip_src, bgp_session.ip_dst,
                                                       self.selectors['tcp']['dport'],
-                                                      tcp_seq_nr)
+                                                      tcp_seq_nr,
+                                                      tcp_payload_size)
                 tcp_packets += tmp_tcp_packets
 
         tcp_packets = tcp_fragment(PacketList(tcp_packets), self.selectors['tcp']['dport'])
@@ -308,13 +310,13 @@ class BGPProcessing(ProtoProcessing):
         self.packets = PacketList(packets_new)
 
 
-    def prep_for_repro(self, initial_delay=5, inter_packet_delay=0.001):
+    def prep_for_repro(self, initial_delay=5, inter_packet_delay=0.001, tcp_payload_size=1424):
 
         # Get some info for self.info struct
         self.bgp_session_info()
 
         # Reconstruct TCP segments s.t. MTU~=1500 (<1500)
-        self.tcp_build_wrapper_BGP()
+        self.tcp_build_wrapper_BGP(tcp_payload_size)
 
         # Adjust timestamps
         self.adjust_timestamps_BGP(initial_delay, inter_packet_delay)
