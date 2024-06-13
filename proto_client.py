@@ -10,7 +10,6 @@ import logging
 import socket
 import threading
 import select
-from time import time
 from scapy.all import TCP, UDP, raw
 
 # Internal Libraries
@@ -79,9 +78,55 @@ class GenericPClient:
             self._init_socket()
 
         report.pkt_proto_sent_countup(proto)
-        # print(packet.hex())
         return self.socket.send(packet)
 
+class GenericTCPPClient(GenericPClient):
+    def __init__(
+        self,
+        collector,
+        client):
+
+        super().__init__(
+            collector,
+            client)
+
+        self.__init_socket()  # initialize TCP socket
+        self.proto = Proto.tcp_generic.value        
+
+    def __init_socket(self):
+        if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv4Address:
+            self.socket = socket.socket(socket.AF_INET)
+        elif type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
+            self.socket = socket.socket(socket.AF_INET6)
+
+    def get_payload(self, packetwm: PacketWithMetadata):
+        packet = packetwm.packet
+        tcp_payload = raw(packet[TCP].payload)
+        return tcp_payload
+
+class GenericUDPPClient(GenericPClient):
+    def __init__(
+        self,
+        collector,
+        client):
+
+        super().__init__(
+            collector,
+            client)
+
+        self.__init_socket()  # initialize UDP socket
+        self.proto = Proto.udp_generic.value        
+
+    def __init_socket(self):
+        if type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv4Address:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        elif type(ipaddress.ip_address(self.client.repro_ip)) is ipaddress.IPv6Address:
+            self.socket = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+
+    def get_payload(self, packetwm: PacketWithMetadata):
+        packet = packetwm.packet
+        ipfix_packet = raw(packet[UDP].payload)
+        return ipfix_packet
 
 class BGPPClient(GenericPClient):
     def __init__(
@@ -104,14 +149,12 @@ class BGPPClient(GenericPClient):
 
     def get_payload(self, packetwm: PacketWithMetadata):
         packet = packetwm.packet
-        bgp_payload = raw(packet[TCP].payload)
-        return bgp_payload
+        bgp_packet = raw(packet[TCP].payload)
+        return bgp_packet
 
-#    # TODO: Understand why do we need this 
-#    def send(self, packet, proto):
-#        r = super().send(packet, proto)
-#        return r
-
+    def send(self, packet, proto):
+        r = super().send(packet, proto)
+        return r
 
 class BMPPClient(GenericPClient):
     def __init__(
@@ -134,9 +177,8 @@ class BMPPClient(GenericPClient):
 
     def get_payload(self, packetwm: PacketWithMetadata):
         packet = packetwm.packet
-        bmp_payload = raw(packet[TCP].payload)
-        return bmp_payload
-
+        bmp_packet = raw(packet[TCP].payload)
+        return bmp_packet
 
 class IPFIXPClient(GenericPClient):
     def __init__(
@@ -159,5 +201,5 @@ class IPFIXPClient(GenericPClient):
 
     def get_payload(self, packetwm: PacketWithMetadata):
         packet = packetwm.packet
-        ipfix_payload = raw(packet[UDP].payload)
-        return ipfix_payload
+        ipfix_packet = raw(packet[UDP].payload)
+        return ipfix_packet

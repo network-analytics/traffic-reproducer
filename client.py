@@ -12,7 +12,7 @@ from time import time, sleep
 from packet_manager import PacketWithMetadata
 from report import report
 from proto import Proto
-from proto_client import BGPPClient, IPFIXPClient, BMPPClient
+from proto_client import GenericTCPPClient, GenericUDPPClient, BGPPClient, BMPPClient, IPFIXPClient
 
 class Client:
     def __init__(
@@ -39,6 +39,12 @@ class Client:
 
         self.pclients = {}
 
+        if Proto.tcp_generic.value in collectors:
+            self._generic_tcp_client_config()
+
+        if Proto.udp_generic.value in collectors:
+            self._generic_udp_client_config()
+
         if Proto.bgp.value in collectors:
             self._bgp_client_config()
 
@@ -48,6 +54,17 @@ class Client:
         if Proto.ipfix.value in collectors:
             self._ipfix_client_config()
 
+    def _generic_tcp_client_config(self):
+        client_tcp = GenericTCPPClient(
+            self.collectors[Proto.tcp_generic.value],
+            self)
+        self.pclients[Proto.tcp_generic.value] = client_tcp
+
+    def _generic_udp_client_config(self):
+        client_udp = GenericUDPPClient(
+            self.collectors[Proto.udp_generic.value],
+            self)
+        self.pclients[Proto.udp_generic.value] = client_udp
 
     def _bgp_client_config(self):
         client_bgp = BGPPClient(

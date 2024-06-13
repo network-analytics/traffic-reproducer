@@ -5,15 +5,12 @@ Given a PCAP and a configuration file, this scapy-based tool can reproduce traff
 ## Features
 
 - Reproduce IPFIX/NFv9/NFv5, BMP and BGP from pcap files
+- Reproduce TCP or UDP payload from pcap files (for well formed pcaps of protocols that don't need special handling or sleeps)
 - Simulates respecting the inter-packet timestamps within the PCAP
 - Simulates multiple clients via multiple configurable IPs
 - Support for VRF in linux
 - Easy integration with new protocols
 - Provides pcap pre-processing functionality to extract clean IPFIX/BGP/BMP sessions from raw pcap captures (for deterministic repro)
-
-## Feature Roadmap [Vision]
-- Pseudo-anonymization (ip, mac addresses)
-- Packet generators for new protocols
 
 ## Installation
 

@@ -11,12 +11,11 @@ import signal
 import sys
 import logging
 import pathlib
-from ast import arg
 from time import time, sleep
 from prettytable import PrettyTable
 from threading import Thread
 from queue import Queue
-from scapy.all import IP, IPv6, TCP, UDP, raw, Raw
+from scapy.all import IP, IPv6
 
 # Internal Libraries
 from pcap_utils.filter import filter_generator
