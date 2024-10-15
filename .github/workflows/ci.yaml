@@ -37,7 +37,7 @@ jobs:
 
       - name: Start TCPDump in background
         run: |
-          sudo tcpdump -i lo -c 6 &
+          sudo tcpdump -i lo -c 6 -dst port 9991 &
           echo "$!" >> tcpdump_pid.txt
           
       - name: Debug IP Configuration
@@ -46,7 +46,7 @@ jobs:
           
       - name: Run main.py
         run: |
-          python main.py -v -t examples/ipfix-traffic.yml
+          sudo env PATH="$PATH" python main.py -v -t examples/ipfix-traffic.yml
 
       - name: Stop Listener
         run: |
