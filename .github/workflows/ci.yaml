@@ -38,7 +38,7 @@ jobs:
 
       - name: Start TCPDump in background
         run: |
-          sudo tcpdump -i lo -c 6 port 9991 &
+          sudo tcpdump -i lo -c 6 -w tcpdump_output.pcap port 9991 &
           echo "$!" >> tcpdump_pid.txt
           
       - name: Debug IP Configuration
@@ -58,3 +58,14 @@ jobs:
         run: |
           pid=$(cat tcpdump_pid.txt)
           sudo kill -SIGINT $pid
+
+      - name: Count and check captured packets
+        run: |
+          captured_packets=$(tcpdump -r tcpdump_output.pcap | wc -l)
+          echo "Captured Packets: $captured_packets"
+          if [ "$captured_packets" -eq 6 ]; then
+            echo "Success: 6 packets captured."
+          else
+            echo "Error: Expected 6 packets but found $captured_packets."
+            exit 1
+          fi
