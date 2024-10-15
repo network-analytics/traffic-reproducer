@@ -30,10 +30,11 @@ jobs:
         run: |
           sudo ifconfig lo:1 192.168.100.1 up
           sudo ifconfig lo:2 192.168.100.2 up
+          sudo ifconfig lo:3 192.168.100.100 up
 
       - name: Start Listener
         run: |
-          nc -u -l -k -s :: 9991 | hexdump -C & echo $! > listener_pid.txt
+          nc -u -l -k -s 192.168.100.100 9991 | hexdump -C & echo $! > listener_pid.txt
 
       - name: Start TCPDump in background
         run: |
