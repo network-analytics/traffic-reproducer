@@ -31,10 +31,25 @@ jobs:
           sudo ifconfig lo:1 192.168.100.1 up
           sudo ifconfig lo:2 192.168.100.2 up
 
-      - name: Run example
+      - name: Start Listener
+        run: |
+          nc -l -6 -p 9991 & echo $! > listener_pid.txt
+
+      - name: Start TCPDump in background
+        run: |
+          sudo tcpdump -i lo -c 6 &
+          echo "$!" >> tcpdump_pid.txt
+
+      - name: Run main.py
         run: |
           python main.py -v -t examples/ipfix-traffic.yml
 
-      - name: Check packet count using tcpdump
+      - name: Stop Listener
         run: |
-          sudo tcpdump -i lo -c 6
+          pid=$(cat listener_pid.txt)
+          sudo kill -SIGINT $pid
+
+      - name: Stop TCPDump
+        run: |
+          pid=$(cat tcpdump_pid.txt)
+          sudo kill -SIGINT $pid
