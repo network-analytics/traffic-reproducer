@@ -34,7 +34,8 @@ jobs:
 
       - name: Start Listener
         run: |
-          nc -u -l -k 9991 | hexdump -C & echo $! > listener_pid.txt
+          touch nc_output.txt
+          nc -u -l -k 9991 | hexdump -C > nc_output.txt & echo $! > listener_pid.txt
 
       - name: Start TCPDump in background
         run: |
@@ -53,11 +54,13 @@ jobs:
         run: |
           pid=$(cat listener_pid.txt)
           sudo kill -SIGINT $pid
+          cat nc_output.txt
 
       - name: Stop TCPDump
         run: |
           pid=$(cat tcpdump_pid.txt)
           sudo kill -SIGINT $pid
+          sleep 2s
 
       - name: Count and check captured packets
         run: |
