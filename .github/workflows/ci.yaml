@@ -33,7 +33,7 @@ jobs:
 
       - name: Start Listener
         run: |
-          nc -l -6 -p 9991 & echo $! > listener_pid.txt
+          nc -u -l -k -s :: 9991 | hexdump -C & echo $! > listener_pid.txt
 
       - name: Start TCPDump in background
         run: |
