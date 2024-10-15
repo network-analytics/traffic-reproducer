@@ -39,7 +39,7 @@ jobs:
 
       - name: Start TCPDump in background
         run: |
-          sudo tcpdump -i lo -c 6 -w tcpdump_output.pcap port 9991 &
+          sudo tcpdump -i lo -w tcpdump_output.pcap port 9991 &
           echo "$!" >> tcpdump_pid.txt
           
       - name: Debug IP Configuration
