@@ -34,19 +34,13 @@ jobs:
       - name: Start Listener
         run: |
           touch nc_output.txt
-          nc -u -l -k 9991 | hexdump -C > nc_output.txt & echo $! > listener_pid.txt
-
-      - name: Start TCPDump in background
-        run: |
-          sudo tcpdump -i lo -w tcpdump_output.pcap port 9991 > tcpdump_output.log 2>&1 &
-          echo "$!" >> tcpdump_pid.txt
+          (nc -u -l -k 9991 | hexdump -C > nc_output.txt & echo $! > listener_pid.txt) &
+          echo "$!" > listener_pid.txt
           sleep 5s
-
-      - name: Check TCPDump process
-        run: |
-          pid=$(cat tcpdump_pid.txt)
-          ps -p $pid
-          sudo cat tcpdump_output.log
+          echo "Listener PID:"
+          cat listener_pid.txt
+          echo "Listener Output:"
+          cat nc_output.txt
 
       - name: Debug IP Configuration
         run: |
@@ -60,22 +54,28 @@ jobs:
         run: |
           pid=$(cat listener_pid.txt)
           sudo kill -SIGINT $pid
+          sleep 5s
+          echo "Listener Output:"
           cat nc_output.txt
 
-      - name: Stop TCPDump
+      - name: Preprocess Hexdump Output
         run: |
-          pid=$(cat tcpdump_pid.txt)
-          sudo kill -SIGINT $pid
-          sleep 5s
-          sudo cat tcpdump_output.log
+          awk '{print substr($0, 11, 47)}' nc_output.txt | tr -d ' \n' > nc_output_cleaned.txt
+          echo "Listener Output Cleaned:"
+          cat nc_output_cleaned.txt
 
-      - name: Count and check captured packets
+      - name: Count Packets
         run: |
-          captured_packets=$(tcpdump -r tcpdump_output.pcap | wc -l)
-          echo "Captured Packets: $captured_packets"
-          if [ "$captured_packets" -eq 6 ]; then
-            echo "Success: 6 packets captured."
+          packet_count=$(grep -o '000a' nc_output_cleaned.txt | wc -l)
+          echo $packet_count > packet_count.txt
+
+      - name: Check Packet Count
+        run: |
+          packet_count=$(cat packet_count.txt)
+          echo "Packet Count: $packet_count"
+          if [ "$packet_count" -eq 6 ]; then
+            echo "Success: 6 packets received."
           else
-            echo "Error: Expected 6 packets but found $captured_packets."
+            echo "Error: Expected 6 packets but found $packet_count."
             exit 1
           fi
