@@ -1,0 +1,81 @@
+name: Basic Checks
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 0 * * *'  # every day at midnight
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Set up loopback interfaces
+        run: |
+          sudo ifconfig lo:1 192.168.100.1 up
+          sudo ifconfig lo:2 192.168.100.2 up
+
+      - name: Start Listener
+        run: |
+          touch nc_output.txt
+          nc -u -l -k 9991 | hexdump -C > nc_output.txt & echo $! > listener_pid.txt
+
+      - name: Start TCPDump in background
+        run: |
+          sudo tcpdump -i lo -w tcpdump_output.pcap port 9991 > tcpdump_output.log 2>&1 &
+          echo "$!" >> tcpdump_pid.txt
+          sleep 5s
+
+      - name: Check TCPDump process
+        run: |
+          pid=$(cat tcpdump_pid.txt)
+          ps -p $pid
+          sudo cat tcpdump_output.log
+
+      - name: Debug IP Configuration
+        run: |
+          ip a
+          
+      - name: Run main.py
+        run: |
+          sudo env PATH="$PATH" python main.py -v -t examples/ipfix-traffic.yml
+
+      - name: Stop Listener
+        run: |
+          pid=$(cat listener_pid.txt)
+          sudo kill -SIGINT $pid
+          cat nc_output.txt
+
+      - name: Stop TCPDump
+        run: |
+          pid=$(cat tcpdump_pid.txt)
+          sudo kill -SIGINT $pid
+          sleep 5s
+          sudo cat tcpdump_output.log
+
+      - name: Count and check captured packets
+        run: |
+          captured_packets=$(tcpdump -r tcpdump_output.pcap | wc -l)
+          echo "Captured Packets: $captured_packets"
+          if [ "$captured_packets" -eq 6 ]; then
+            echo "Success: 6 packets captured."
+          else
+            echo "Error: Expected 6 packets but found $captured_packets."
+            exit 1
+          fi
