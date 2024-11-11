@@ -1,0 +1,38 @@
+---
+pcap: examples/pcap_processing/ipfix-multi-sources-capture.pcap
+
+# For now list of pcap files as input for preprocessing is not supported, manually merge before if needed:
+# python ../../pcap_utils/pcap_merger.py destination.pcap source1.pcap source.pcap
+# or run the reproducer with the list of pcap files as input (for that it is supported)
+
+# Pre-processing settings
+pcap_processing:
+  initial_delay: 5
+  inter_packet_delay: 0.001
+
+# Protocols with filter selectors
+ipfix:
+  select:
+    ip:
+      src:
+        - 2001:db8:11::1
+        - 2001:db8:53::1
+        - 2001:db8:73::1
+        - 2001:db8:90::1
+        - 2001:db8:91::1
+        - 203.0.113.19
+        - 203.0.113.21
+        - 203.0.113.22
+        - 203.0.113.23
+        - 203.0.113.24
+        - 203.0.113.28
+        - 203.0.113.44
+        - 203.0.113.54
+        - 203.0.113.81
+    udp:
+      dport:
+      - 9991
+    ipfix_h:
+      version:
+      - 9   # NetFlow v9
+      - 10  # IPFIX

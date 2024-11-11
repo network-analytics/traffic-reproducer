@@ -44,6 +44,8 @@ network:
       repro_ip:   cafe::12
     - src_ip:     203.0.113.21
       repro_ip:   cafe::13
+    - src_ip:     203.0.113.54
+      repro_ip:   cafe::14
 
   interface: null
 
