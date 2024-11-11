@@ -51,7 +51,7 @@ class PcapProcessing:
 
         if 'inter_packet_delay' in self.config['pcap_processing']:
             self.inter_packet_delay = self.config['pcap_processing']['inter_packet_delay']
-        
+
         if 'inter_protocol_delay' in self.config['pcap_processing']:
             self.inter_protocol_delay = self.config['pcap_processing']['inter_protocol_delay']
 
@@ -64,13 +64,13 @@ class PcapProcessing:
     def __print_args(self):
         logging.info(" ")
         logging.info("    ** Pcap-file processing arguments: **")
-        logging.info(f"    input_pcap = {self.config['pcap']}") 
+        logging.info(f"    input_pcap = {self.config['pcap']}")
         logging.info(f"    out_folder = {self.out_folder}")
         logging.info(f"    initial_delay = {self.initial_delay}")
         logging.info(f"    inter_packet_delay = {self.inter_packet_delay}")
         logging.info(f"    inter_protocol_delay = {self.inter_protocol_delay}")
         logging.info(" ")
-    
+
     def adapt_config_for_repro(self, src_ips):
         # Remove pcap_processing section
         self.config.pop('pcap_processing', None)
@@ -91,16 +91,16 @@ class PcapProcessing:
                                        'network': {'so_sndbuf': None, \
                                                    'so_rcvbuf': None}}
         if 'network' not in self.config:
-            if src_ips: 
+            if src_ips:
                 for src_ip in src_ips:
                     self.config['network'] = {'interface': None, \
                                               'map': {'src_ip': src_ip, \
                                                       'repro_ip': '<MISSING_PARAM>'}}
-            else: 
+            else:
                 self.config['network'] = {'interface': None, \
                                           'map': {'src_ip': '<MISSING_PARAM>', \
                                                   'repro_ip': '<MISSING_PARAM>'}}
-                                                      
+
 
     def adjust_timestamps(self, packets, last_protocol_pkt_time):
         # Reference time for delay handling
@@ -128,11 +128,11 @@ class PcapProcessing:
         for proto in [proto for proto in self.config if proto in supported_protos]:
 
             logging.info(f"Processing {proto}")
-            pp = ProtoProcessing.get_subclass(proto, 
-                                              self.config['pcap'], 
+            pp = ProtoProcessing.get_subclass(proto,
+                                              self.config['pcap'],
                                               self.config[proto]['select'])
 
-            [info, proto_packets] = pp.prep_for_repro(self.initial_delay, self.inter_packet_delay, self.tcp_payload_size)                                                
+            [info, proto_packets] = pp.process_packets(self.initial_delay, self.inter_packet_delay, self.tcp_payload_size)
             self.out_info_dict[proto.upper() + " Information"] = info
 
             # Adjust (proto-specific) config for parameters reproduction
@@ -149,7 +149,7 @@ class PcapProcessing:
             if packets:
                 proto_packets = self.adjust_timestamps(proto_packets, packets[-1].time)
 
-            packets += proto_packets 
+            packets += proto_packets
 
         # Export processed packets
         wrpcap(self.out_pcap, packets)
@@ -168,8 +168,8 @@ class PcapProcessing:
 
         logging.info("Pcap processing successful!")
         logging.info(f"Size of processed packet (all protocols):  {len(packets)}")
-        logging.info(f"Pcap file location:                        {self.out_pcap}") 
-        logging.info(f"Config file location:                      {self.out_config}") 
-        logging.info(f"Info file location:                        {self.out_info}") 
+        logging.info(f"Pcap file location:                        {self.out_pcap}")
+        logging.info(f"Config file location:                      {self.out_config}")
+        logging.info(f"Info file location:                        {self.out_info}")
 
         return self.config

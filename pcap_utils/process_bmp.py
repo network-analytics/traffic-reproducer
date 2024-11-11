@@ -39,12 +39,12 @@ class BMPProcessing(ProtoProcessing):
         #   self.info() template:
         #
         #   "ip_src": { ...
-        #       "bmp_version": 
-        #       "sysDescr": 
-        #       "sysName": 
+        #       "bmp_version":
+        #       "sysDescr":
+        #       "sysName":
         #       "BGP_peers": {"Peer_BGP_Id":
-        #                                     { "bgp_version": 
-        #                                       "as_number": 
+        #                                     { "bgp_version":
+        #                                       "as_number":
         #                                       "route_monitoring_counter":
         #                                       "stats_counter":    },
         #                        ... }
@@ -55,8 +55,8 @@ class BMPProcessing(ProtoProcessing):
 
         # Extract and cleanup BMP sessions from self.packets
         self.__bmp_sessions_cleanup()
-        self.__bmp_sessions_defragment() 
-        
+        self.__bmp_sessions_defragment()
+
         # Some more filtering on BMP layers
         self.__bmp_apply_additional_filters()
 
@@ -68,20 +68,20 @@ class BMPProcessing(ProtoProcessing):
 
         packets_new = []
         tcp_sessions = self.packets.sessions()
-        
+
         for session_id, plist in tcp_sessions.items():
             keep_session = False
-            
+
             for packet in plist:
                 bmp_packet = packet[TCP].payload
 
                 # Check if we have an INIT message
-                if len(bmp_packet) >= 6 and raw(bmp_packet)[5] == 4: 
+                if len(bmp_packet) >= 6 and raw(bmp_packet)[5] == 4:
                     keep_session = True
                     packets_new.append(packet)
                 else:
                     # Keep only packets after INIT received
-                    if keep_session and len(bmp_packet) >= 6: 
+                    if keep_session and len(bmp_packet) >= 6:
                         packets_new.append(packet)
 
         self.packets = PacketList(packets_new)
@@ -91,7 +91,7 @@ class BMPProcessing(ProtoProcessing):
 
         tcp_sessions = self.packets.sessions()
         tcp_port = self.selectors['tcp']['dport']
-        
+
         # Process all BMP sessions
         for session_id, plist in tcp_sessions.items():
 
@@ -110,14 +110,14 @@ class BMPProcessing(ProtoProcessing):
                 ip_dst = first_pkt[IPv6].dst
 
             raw_bmp_packets = []
-            bmp_session = BMPSession(ip_ver, ip_src, ip_dst)            
+            bmp_session = BMPSession(ip_ver, ip_src, ip_dst)
 
             # Defragmenting BMP session
             reassembled_raw = None
             for packet in plist:
 
                 #packet.show()
-                
+
                 if packet[TCP].payload.name == "Raw":
                     if not reassembled_raw:
                         reassembled_raw = raw_bmp_packets.pop() + raw(packet[TCP].payload)
@@ -128,7 +128,7 @@ class BMPProcessing(ProtoProcessing):
                     if reassembled_raw:
                         raw_bmp_packets.append(reassembled_raw)
                         reassembled_raw = None
-                        
+
                     raw_bmp_packets.append(raw(packet[TCP].payload))
 
             # Append last packet if we have remaining raw payload
@@ -136,7 +136,8 @@ class BMPProcessing(ProtoProcessing):
                 raw_bmp_packets.append(reassembled_raw)
 
             # Split up and get single BMP messages
-            for raw_bmp_packet in raw_bmp_packets:
+            for i in range(len(raw_bmp_packets)):
+                raw_bmp_packet = raw_bmp_packets[i]
                 bmp_hdr = BMP(raw_bmp_packet[:6])
 
                 while bmp_hdr.getlayer(BMPHeader):
@@ -145,15 +146,24 @@ class BMPProcessing(ProtoProcessing):
 
                     length = bmp_hdr[BMPHeader].len
                     #print("length=", length)
+
+                    # Incomplete PDU: append the remaining bytes to the beginning of the next element
+                    # (if there is a next element, otherwise simply exit/discard the remaining bytes)
+                    if len(raw_bmp_packet) < length:
+
+                        if i + 1 < len(raw_bmp_packets):
+                            raw_bmp_packets[i + 1] = raw_bmp_packet + raw_bmp_packets[i + 1]
+                        break
+
                     bmp_session.bmp_packets.append(BMP(raw_bmp_packet[:length]))
 
                     raw_bmp_packet = raw_bmp_packet[length:]
                     bmp_hdr = BMP(raw_bmp_packet[:6])
-                    
+
             self.bmp_sessions.append(bmp_session)
 
     def __bmp_apply_additional_filters(self):
-        # Apply more advanced filters if provided in proto selectors, 
+        # Apply more advanced filters if provided in proto selectors,
         # i.e. BMP msg type
 
         # Generate filter from selectors
@@ -165,7 +175,7 @@ class BMPProcessing(ProtoProcessing):
             for bmp_packet in self.bmp_sessions[i].bmp_packets:
                 if proto_filter(bmp_packet):
                     bmp_packets_new.append(bmp_packet)
-            
+
             self.bmp_sessions[i].bmp_packets = bmp_packets_new
 
 
@@ -186,9 +196,9 @@ class BMPProcessing(ProtoProcessing):
         #get_layers(bmp_packet, do_print=True, layer_limit=10)
 
         if str(peer_bgp_id) not in self.info[str(ip_src)]['BGP_Peers'].keys():
-            
+
             # TODO: investigate better (corner case for FRR where we don't receive BGP_ID but 0.0.0.0 for local router BGP process in OPEN)
-            if str(peer_bgp_id) == '0.0.0.0': 
+            if str(peer_bgp_id) == '0.0.0.0':
                 self.info[str(ip_src)]['BGP_Peers'][str(ip_src)] = {"as_number": bmp_packet[PerPeerHeader].peer_asn}
                 self.register_bgp_open(ip_src, str(ip_src), bmp_packet)
 
@@ -203,10 +213,11 @@ class BMPProcessing(ProtoProcessing):
                 self.info[str(ip_src)]['sysDescr'] = tlv.value.decode()
             elif tlv.type == 2:
                 self.info[str(ip_src)]['sysName'] = tlv.value.decode()
-        
+
         # Initialize BGP Peers Dict
         self.info[str(ip_src)]['BGP_Peers'] = {}
 
+    # TODO: needs some work
     def bmp_session_info(self):
         for bmp_session in self.bmp_sessions:
             if str(bmp_session.ip_src) not in self.info.keys():
@@ -242,7 +253,7 @@ class BMPProcessing(ProtoProcessing):
         # - calls tcp_build helper to construct TCP segments s.t. MTU ~= 1500
         # - calls tcp_fragment to make sure MTU < 1500
         tcp_packets = []
-        
+
         for bmp_session in self.bmp_sessions:
             payloads = []
             msg_type = 999
@@ -261,7 +272,7 @@ class BMPProcessing(ProtoProcessing):
                 else:
                     payloads.append(bmp_packet)
 
-            if (payloads): 
+            if (payloads):
                 tmp_tcp_packets,tcp_seq_nr = tcp_build(payloads, bmp_session.ip_ver,
                                                       bmp_session.ip_src, bmp_session.ip_dst,
                                                       self.selectors['tcp']['dport'],
@@ -270,32 +281,39 @@ class BMPProcessing(ProtoProcessing):
                 tcp_packets += tmp_tcp_packets
 
         tcp_packets = tcp_fragment(PacketList(tcp_packets), self.selectors['tcp']['dport'])
-                
+
         self.packets = PacketList(tcp_packets)
 
     def adjust_timestamps_BMP(self, initial_delay, inter_packet_delay):
         packets_new = []
         reference_time = EDecimal(initial_delay + 1672534800.000)
         pkt_counter = 0
+        peer_down_observed = 0
 
         for pkt in self.packets:
             pkt.time = reference_time + EDecimal(pkt_counter * inter_packet_delay)
             packets_new.append(pkt)
             pkt_counter += 1
 
-            # Check if we have a peer-up message, and add some delay before
-            if (raw(pkt[TCP].payload)[5] == 3):
-                self.packets[pkt_counter-1].time += EDecimal(2)
-                reference_time += EDecimal(2)
+            # Check if we have a peer-up message, and add 5s delay before
+            # (only if a peer_down was observed before, otherwise if we have many peer-ups in a row
+            #  like at the beginning of the session, we would add delay to all of them)
+            if (raw(pkt[TCP].payload)[5] == 3 and peer_down_observed):
+                self.packets[pkt_counter-1].time += EDecimal(5)
+                reference_time += EDecimal(5)
 
-            # Check if we have a peer-down message, and add some delay before
+                peer_down_observed -= 1
+
+            # Check if we have a peer-down message, and add 5s delay before
             if (raw(pkt[TCP].payload)[5] == 2):
                 self.packets[pkt_counter-1].time += EDecimal(5)
                 reference_time += EDecimal(5)
 
+                peer_down_observed += 1
+
         self.packets = PacketList(packets_new)
 
-    def prep_for_repro(self, initial_delay=5, inter_packet_delay=0.001, tcp_payload_size=1424):
+    def process_packets(self, initial_delay=5, inter_packet_delay=0.001, tcp_payload_size=1424):
 
         # Get some info for self.info struct
         self.bmp_session_info()
@@ -309,5 +327,5 @@ class BMPProcessing(ProtoProcessing):
 
 
         # temp only produce bgp messages as is to check if correct...
-        logging.info(f"Size of processed BMP packets: {len(self.packets)}") 
+        logging.info(f"Size of processed BMP packets: {len(self.packets)}")
         return [self.info, self.packets]
