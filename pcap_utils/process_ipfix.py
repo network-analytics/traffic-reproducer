@@ -89,16 +89,25 @@ class IPFIXProcessing(ProtoProcessing):
             SourceID = ipfix_packet.ObservationDomainID
 
         i = 1
-        while ipfix_packet.getlayer(NetflowFlowsetV9, i):
+        layer = ipfix_packet.getlayer(i)
+        flowSetID_cached = None
+        while layer is not None:
+
+            if isinstance(layer, NetflowFlowsetV9):
+                flowSetID_cached = layer.getlayer(NetflowFlowsetV9).flowSetID
+                i += 1
+                layer = ipfix_packet.getlayer(i)
+                continue
+
+            if not isinstance(layer, NetflowTemplateV9):
+                i += 1
+                layer = ipfix_packet.getlayer(i)
+                continue
 
             # Dissect some fields
-            flowSetID = ipfix_packet.getlayer(NetflowFlowsetV9, i).flowSetID
-            templateID = ipfix_packet.getlayer(NetflowTemplateV9, i).templateID
-            field_count = ipfix_packet.getlayer(NetflowTemplateV9, i).fieldCount
-            length = ipfix_packet.getlayer(NetflowFlowsetV9, i).length
-
-            # Gather data template fields summary
-            templates = ipfix_packet.getlayer(NetflowFlowsetV9, i).templates
+            flowSetID = flowSetID_cached
+            templateID = layer.getlayer(NetflowTemplateV9).templateID
+            field_count = layer.getlayer(NetflowTemplateV9).fieldCount
 
             # Add some information to self.info dict
             ipfix_version = "Version " + str(ipfix_packet.version)
@@ -113,11 +122,11 @@ class IPFIXProcessing(ProtoProcessing):
             if template not in self.info[ip_src][ipfix_version][SourceID_str].keys():
                 self.info[ip_src][ipfix_version][SourceID_str][template] ={"type": "Data Template",
                                                                        "flowset_id": flowSetID,
-                                                                       "template_length": length,
                                                                        "template_field_count": field_count,
                                                                        "data_flowset_counter": 0}
 
-            i = i + 1
+            i += 1
+            layer = ipfix_packet.getlayer(i)
 
     # Check if option template [v9] is there already, otherwise register
     def register_option_templatev9(self, ip_src, ipfix_packet):
@@ -130,7 +139,6 @@ class IPFIXProcessing(ProtoProcessing):
             # Dissect some fields
             templateID = ipfix_packet.getlayer(NetflowOptionsFlowsetV9, i).templateID
             flowSetID = ipfix_packet.getlayer(NetflowOptionsFlowsetV9, i).flowSetID
-            length = ipfix_packet.getlayer(NetflowOptionsFlowsetV9, i).length
 
             # Gather option template fields summary
             scopes = ipfix_packet.getlayer(NetflowOptionsFlowsetV9, i).scopes
@@ -149,7 +157,6 @@ class IPFIXProcessing(ProtoProcessing):
             if template not in self.info[ip_src][ipfix_version][SourceID_str].keys():
                 self.info[ip_src][ipfix_version][SourceID_str][template] ={"type": "Option Template",
                                                                        "flowset_id": flowSetID,
-                                                                       "template_length": length,
                                                                        "template_field_count": len(scopes) + len(options),
                                                                        "template_scopes_count": len(scopes),
                                                                        "template_options_count": len(options),
@@ -174,7 +181,6 @@ class IPFIXProcessing(ProtoProcessing):
             templateID = ipfix_packet.getlayer(NetflowOptionsFlowset10, i).templateID
             flowSetID = ipfix_packet.getlayer(NetflowOptionsFlowset10, i).flowSetID
             field_count = ipfix_packet.getlayer(NetflowOptionsFlowset10, i).field_count
-            length = ipfix_packet.getlayer(NetflowOptionsFlowset10, i).length
 
             # Gather option template fields summary
             scopes = ipfix_packet.getlayer(NetflowOptionsFlowset10, i).scopes
@@ -193,7 +199,6 @@ class IPFIXProcessing(ProtoProcessing):
             if template not in self.info[ip_src][ipfix_version][SourceID_str].keys():
                 self.info[ip_src][ipfix_version][SourceID_str][template] ={"type": "Option Template",
                                                                        "flowset_id": flowSetID,
-                                                                       "template_length": length,
                                                                        "template_field_count": field_count,
                                                                        "template_scopes_count": len(scopes),
                                                                        "template_options_count": len(options),
@@ -259,7 +264,7 @@ class IPFIXProcessing(ProtoProcessing):
         if ipfix_packet.haslayer(NetflowOptionsFlowset10):
             self.register_option_templatev10(ip_src, ipfix_packet)
 
-            # TEMP: otherwise for v10 with option and data in same packet next check fails (need debugging)
+            # Skip next check in case we have an option template otherwise next check will fail
             return True
 
         # (Option-)Data Flowset(s) - v9, v10
@@ -277,8 +282,8 @@ class IPFIXProcessing(ProtoProcessing):
 
         for packet in self.packets:
 
-            #packet.show()
-            #get_layers(packet, do_print=True, layer_limit=10)
+            # packet.show()
+            # get_layers(packet, do_print=True, layer_limit=10)
 
             # Add ip_src to self.info dict
             if IP in packet:
@@ -296,7 +301,7 @@ class IPFIXProcessing(ProtoProcessing):
             ipfix_packet = NetflowHeader(raw(ipfix_payload))
 
             #ipfix_packet.show()
-            #get_layers(ipfix_packet, do_print=True, layer_limit=10)
+            # get_layers(ipfix_packet, do_print=True, layer_limit=10)
 
             if self.ipfix_custom_checks(ip_src, ipfix_packet):
                 packets_new.append(packet)
