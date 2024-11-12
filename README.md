@@ -44,8 +44,8 @@ options:
                         --> also configurable through the config file [args OR config]
   --keep-open         Keep the TCP connections open when finishing the pcap reproduction
                         --> also configurable through the config file [args OR config]
-
------------------------
+  --ask-for-input     Whether to ask for input before reproducing each pcap file
+                        --> default is reproducing right away all pcap files in the config file one after the other
 ```
 
 ### Recording a pcap file

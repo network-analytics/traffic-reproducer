@@ -86,7 +86,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--ask_for_input',
+        '--ask-for-input',
         help="Whether to ask for input before reproducing each pcap file \n  --> default is reproducing right away all pcap files in the config file one after the other",
         action="store_const",
         dest="ask_for_input",
