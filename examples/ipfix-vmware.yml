@@ -1,5 +1,5 @@
 ---
-pcap: examples/ipfix-vmware.pcap
+pcap: examples/pcaps/ipfix-vmware.pcap
 
 time_factor: 1                          # multiplicative factor for speed (2 = twice as slow)
 keep_open: false                        # set to true to not stop application (-> keep sockets open)

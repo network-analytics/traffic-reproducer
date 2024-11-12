@@ -1,4 +1,4 @@
-pcap: examples/tcp-json.pcap
+pcap: examples/pcaps/tcp-json.pcap
 
 # Pre-processing settings
 pcap_processing:

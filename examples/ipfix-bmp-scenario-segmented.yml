@@ -1,13 +1,13 @@
 pcap:
-  - examples/ipfix-bmp-scenario-PART1-bmp-init-and-peer-ups.pcap
-  - examples/ipfix-bmp-scenario-PART2-bmp-route-monitoring-updates.pcap
-  - examples/ipfix-bmp-scenario-PART3-bmp-loc-rib-peer-down.pcap
-  - examples/ipfix-bmp-scenario-PART4-bmp-route-monitoring-withdrawals-updates.pcap
-  - examples/ipfix-bmp-scenario-PART5-ipfix-traffic.pcap
-  - examples/ipfix-bmp-scenario-PART6-bmp-loc-rib-peer-up.pcap
-  - examples/ipfix-bmp-scenario-PART7-bmp-global-peer-down.pcap
-  - examples/ipfix-bmp-scenario-PART8-bmp-global-peer-up.pcap
-  - examples/ipfix-bmp-scenario-PART9-ipfix-traffic-2.pcap
+  - examples/pcaps/ipfix-bmp-scenario-PART1-bmp-init-and-peer-ups.pcap
+  - examples/pcaps/ipfix-bmp-scenario-PART2-bmp-route-monitoring-updates.pcap
+  - examples/pcaps/ipfix-bmp-scenario-PART3-bmp-loc-rib-peer-down.pcap
+  - examples/pcaps/ipfix-bmp-scenario-PART4-bmp-route-monitoring-withdrawals-updates.pcap
+  - examples/pcaps/ipfix-bmp-scenario-PART5-ipfix-traffic.pcap
+  - examples/pcaps/ipfix-bmp-scenario-PART6-bmp-loc-rib-peer-up.pcap
+  - examples/pcaps/ipfix-bmp-scenario-PART7-bmp-global-peer-down.pcap
+  - examples/pcaps/ipfix-bmp-scenario-PART8-bmp-global-peer-up.pcap
+  - examples/pcaps/ipfix-bmp-scenario-PART9-ipfix-traffic-2.pcap
 
 time_factor: 1                            # multiplicative factor for speed (2 = twice as slow)
 keep_open: true                           # set to true to not stop application (-> keep sockets open)

@@ -1,7 +1,7 @@
 ---
 pcap:
-  - examples/ipfix-multi-sources-left.pcap
-  - examples/ipfix-multi-sources-right.pcap
+  - examples/pcaps/ipfix-multi-sources-left.pcap
+  - examples/pcaps/ipfix-multi-sources-right.pcap
 
 time_factor: 0.5 # 2x faster
 keep_open: false

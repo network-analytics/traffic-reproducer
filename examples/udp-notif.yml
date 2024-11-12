@@ -1,4 +1,4 @@
-pcap: examples/udp-notif.pcap
+pcap: examples/pcaps/udp-notif.pcap
 
 # Pre-processing settings
 pcap_processing:
