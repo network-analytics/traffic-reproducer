@@ -240,6 +240,33 @@ def main():
     if isinstance(pcap_path_list, str):
         pcap_path_list = [pcap_path_list]
 
+    # Handle pcap repetition if specified
+    if 'repeat' in config:
+        expanded_pcap_path_list = []
+        repeat_counts = config['repeat']['count']
+        repeat_pattern = config['repeat']['pattern']
+
+        if len(repeat_counts) != len(pcap_path_list):
+            logging.error("Repeat count list does not match number of pcap files. Exiting...")
+            stop_application()
+
+        if repeat_pattern == 'round-robin':
+            while any(count > 0 for count in repeat_counts):
+                for i, pcap_path in enumerate(pcap_path_list):
+                    if repeat_counts[i] > 0:
+                        expanded_pcap_path_list.append(pcap_path)
+                        repeat_counts[i] -= 1
+
+        elif repeat_pattern == 'bulk':
+            for i, pcap_path in enumerate(pcap_path_list):
+                expanded_pcap_path_list.extend([pcap_path] * repeat_counts[i])
+
+        else:
+            logging.error("Invalid repeat type specified. Exiting...")
+            stop_application()
+
+        pcap_path_list = expanded_pcap_path_list
+
     for pcap_path in pcap_path_list:
 
         # pcap timestamp for first packet sent
@@ -252,6 +279,7 @@ def main():
                 logging.info("Skipping this pcap file...")
                 continue
 
+        logging.info(f"Reproducing pcap file '{pcap_path}'...")
         report.resume()
 
         # read pcap file and select packets according to selectors
