@@ -1,0 +1,60 @@
+---
+pcap:
+  - examples/pcaps/ipfix-multi-sources-left.pcap
+  - examples/pcaps/ipfix-multi-sources-right.pcap
+
+time_factor: 0.5 # 2x faster
+keep_open: false
+no_sync: true # send right away
+
+optimize:
+  threading: false
+  preload: false
+  network:
+    so_sndbuf: null
+    so_rcvbuf: null
+
+network:
+  map:
+    # CISCO
+    - src_ip:     2001:db8:11::1
+      repro_ip:   cafe::1
+    - src_ip:     203.0.113.19
+      repro_ip:   cafe::2
+    - src_ip:     2001:db8:73::1
+      repro_ip:   cafe::3
+    - src_ip:     2001:db8:90::1
+      repro_ip:   cafe::4
+    - src_ip:     2001:db8:53::1
+      repro_ip:   cafe::5
+    - src_ip:     2001:db8:91::1
+      repro_ip:   cafe::6
+    - src_ip:     203.0.113.44
+      repro_ip:   cafe::7
+    # HUAWEI
+    - src_ip:     203.0.113.28
+      repro_ip:   cafe::8
+    - src_ip:     203.0.113.24
+      repro_ip:   cafe::9
+    - src_ip:     203.0.113.23
+      repro_ip:   cafe::10
+    - src_ip:     203.0.113.22
+      repro_ip:   cafe::11
+    - src_ip:     203.0.113.81
+      repro_ip:   cafe::12
+    - src_ip:     203.0.113.21
+      repro_ip:   cafe::13
+    - src_ip:     203.0.113.54
+      repro_ip:   cafe::14
+
+  interface: null
+
+# Protocols with filter selectors
+ipfix:
+  select:
+    udp:
+      dport:
+      - 9991
+  collector:                            # define the collector that will receive the reproduced messages
+    ip: cafe::100
+    port: 9992

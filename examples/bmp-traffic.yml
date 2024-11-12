@@ -1,4 +1,4 @@
-pcap: examples/bmp-traffic.pcap
+pcap: examples/pcaps/bmp-traffic.pcap
 
 time_factor: 1                            # multiplicative factor for speed (2 = twice as slow)
 keep_open: false                          # set to true to not stop application (-> keep sockets open)
@@ -13,13 +13,13 @@ optimize:
 
 network:
   map:                                    # map a src IP to a new source IP used for repro
-  - src_ip:           192.0.2.61 
+  - src_ip:           192.0.2.61
     repro_ip:         192.168.100.1       # needs to be an IP existing IP address bound to an interface on the server
-    
+
   interface: null                         # to use a VRF, give the vrf name
 
 bmp:
-  select: 
+  select:
     tcp:
       dport:
       - 1790

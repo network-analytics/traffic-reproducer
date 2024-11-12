@@ -9,6 +9,7 @@ import argparse
 import yaml
 import signal
 import sys
+import os
 import logging
 import pathlib
 from time import time, sleep
@@ -33,7 +34,7 @@ def parse_args():
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument(
-        "-t", "--test",
+        '-t', '--cfg',
         type=pathlib.Path,
         dest='cfg',
         required=True,
@@ -84,6 +85,15 @@ def parse_args():
         default=False,
     )
 
+    parser.add_argument(
+        '--ask-for-input',
+        help="Whether to ask for input before reproducing each pcap file \n  --> default is reproducing right away all pcap files in the config file one after the other",
+        action="store_const",
+        dest="ask_for_input",
+        const=True,
+        default=False,
+    )
+
     args = parser.parse_args()
     return args
 
@@ -97,7 +107,7 @@ def pcap_processing(args, config):
     if 'pcap_processing' in config:
         if 'exit' in config['pcap_processing']:
               exit_flag = config['pcap_processing']['exit']
-        
+
     # Start pcap processing
     pp = PcapProcessing(config=config)
     pp_config = pp.start()
@@ -106,9 +116,9 @@ def pcap_processing(args, config):
     if exit_flag:
         logging.info("Exiting (exit=yes)...")
         sys.exit()
-    
+
     # Replace config with new one and continue with reproduction
-    logging.info("Starting repro...") 
+    logging.info("Starting repro...")
     return pp_config
 
 # create src_ip -> repro_ip mapping
@@ -130,7 +140,7 @@ def sleep_between_pkts(packet, real_start_time, pcap_start_time, time_factor):
     theoretical_sleep_time = elapsed_pcap_time * time_factor - elapsed_real_time
 
     # Reporting delay to give an idea if repro is behind schedule given by pcap intervals
-    report.set_delay(min(theoretical_sleep_time, 0))  
+    report.set_delay(min(theoretical_sleep_time, 0))
 
     # Compute actual sleep_time (in 1ms intervals)
     sleep_time = round(max(theoretical_sleep_time - 0.01/time_factor, 0),3)
@@ -142,6 +152,17 @@ def sleep_between_pkts(packet, real_start_time, pcap_start_time, time_factor):
     logging.debug(f"Sleep time: {sleep_time}s [in 1ms steps]")
 
     return sleep_time
+
+def retrieve_user_input(pcap_path):
+    logging.info("\n")
+    logging.info("********************************* INPUT REQUIRED **************************************")
+    logging.info(f"***   Reproduce pcap file '{pcap_path}'?   ***")
+    logging.info("***   Enter 'y' to continue, any other key to exit.   ***")
+    logging.info("***************************************************************************************")
+    logging.info("\n")
+
+    return input()
+
 
 def main():
     # parse arguments
@@ -163,11 +184,11 @@ def main():
     # protocol selectors
     supported_protos = [e.value for e in Proto]
     selectors = {}
-    for proto in [proto for proto in supported_protos if proto in config]: 
+    for proto in [proto for proto in supported_protos if proto in config]:
         if 'select' in config[proto]:
             logging.info(f"{proto} repro selectors: {config[proto]['select']}")
             selectors[proto] = filter_generator(config[proto]['select'])
-        else: 
+        else:
             logging.info(f"{proto} repro selectors not defined: select all packets")
             selectors[proto] = filter_generator(False)
 
@@ -212,96 +233,149 @@ def main():
     # start reporting
     report.start_thread()
 
-    # pcap timestamp for first packet sent
-    pcap_start_time = None
-    # real timestamp for first packet sent
-    real_start_time = None
+    report.pause()    # pause temporarily since might have to wait for user input
+    sleep(1)          # give time to pause
 
-    # read pcap file and select packets according to selectors
-    pm = PacketManager(
-        pcap_path=config['pcap'],
-        selectors=selectors,
-        preload=config['optimize']['preload']
-    )
+    pcap_path_list = config['pcap']
+    if isinstance(pcap_path_list, str):
+        pcap_path_list = [pcap_path_list]
 
-    # start loop on pcap's packets
-    packetwm: PacketWithMetadata
-    for packetwm in pm:
-        packet = packetwm.packet
-        i = packetwm.number
+    # Handle pcap repetition if specified
+    if 'repeat' in config:
+        expanded_pcap_path_list = []
+        repeat_counts = config['repeat']['count']
+        repeat_pattern = config['repeat']['pattern']
 
-        try:
-            logging.debug(f"[{i}] start packet analysis")
+        if len(repeat_counts) != len(pcap_path_list):
+            logging.error("Repeat count list does not match number of pcap files. Exiting...")
+            stop_application()
 
-            if IP in packet:
-                ip_src = packet[IP].src
-            elif IPv6 in packet:
-                ip_src = packet[IPv6].src
+        if repeat_pattern == 'round-robin':
+            while any(count > 0 for count in repeat_counts):
+                for i, pcap_path in enumerate(pcap_path_list):
+                    if repeat_counts[i] > 0:
+                        expanded_pcap_path_list.append(pcap_path)
+                        repeat_counts[i] -= 1
 
-            logging.debug(f"[{i}] has ip_src: {ip_src}")
+        elif repeat_pattern == 'bulk':
+            for i, pcap_path in enumerate(pcap_path_list):
+                expanded_pcap_path_list.extend([pcap_path] * repeat_counts[i])
 
-            if ip_src not in ip_map:
-                report.pkt_nopeer_countup()
-                logging.debug(f"[{i}] discarded as {ip_src} not in IP Map (not specified as src_ip in config file)")
+        else:
+            logging.error("Invalid repeat type specified. Exiting...")
+            stop_application()
+
+        pcap_path_list = expanded_pcap_path_list
+
+    for pcap_path in pcap_path_list:
+
+        # pcap timestamp for first packet sent
+        pcap_start_time = None
+        # real timestamp for first packet sent
+        real_start_time = None
+
+        if args.ask_for_input:
+            if retrieve_user_input(pcap_path).lower() != 'y':
+                logging.info("Skipping this pcap file...")
                 continue
 
-            if ip_src not in clients:
-                network_map = ip_map[ip_src]
-                collectors = {x: config[x]['collector'] for x in supported_protos if x in config}
-                optimize_network = config['optimize']['network']
-                network_interface = config['network']['interface']
+        logging.info(f"Reproducing pcap file '{pcap_path}'...")
+        report.resume()
 
-                queue_th = Queue() if is_threading else None
-                client = Client(
-                    queue_th=queue_th,
-                    network_map=network_map,
-                    collectors=collectors,
-                    optimize_network=optimize_network,
-                    network_interface=network_interface,
-                )
+        # read pcap file and select packets according to selectors
+        pm = PacketManager(
+            pcap_path,
+            selectors=selectors,
+            preload=config['optimize']['preload']
+        )
+
+        # start loop on pcap's packets
+        packetwm: PacketWithMetadata
+        for packetwm in pm:
+            packet = packetwm.packet
+            i = packetwm.number
+
+            try:
+                logging.debug(f"[{i}] start packet analysis")
+
+                if IP in packet:
+                    ip_src = packet[IP].src
+                elif IPv6 in packet:
+                    ip_src = packet[IPv6].src
+
+                logging.debug(f"[{i}] has ip_src: {ip_src}")
+
+                if ip_src not in ip_map:
+                    report.pkt_nopeer_countup()
+                    logging.debug(f"[{i}] discarded as {ip_src} not in IP Map (not specified as src_ip in config file)")
+                    continue
+
+                if ip_src not in clients:
+                    network_map = ip_map[ip_src]
+                    collectors = {x: config[x]['collector'] for x in supported_protos if x in config}
+                    optimize_network = config['optimize']['network']
+                    network_interface = config['network']['interface']
+
+                    queue_th = Queue() if is_threading else None
+                    client = Client(
+                        queue_th=queue_th,
+                        network_map=network_map,
+                        collectors=collectors,
+                        optimize_network=optimize_network,
+                        network_interface=network_interface,
+                    )
+
+                    # TODO: fix for stress testing/mem leaks (threading not working)
+                    if is_threading:
+                        client_th = Thread(target=client.listen)
+                        client_th.start()
+
+                        clients[ip_src] = {
+                            'thread': client_th,
+                            'queue': queue_th,
+                        }
+                    else:
+                        clients[ip_src] = client
+
+                # calculate sleep time (in between packets) and sleep
+                if pcap_start_time is not None:
+                    sleep_time = sleep_between_pkts(packet, real_start_time, pcap_start_time, config['time_factor'])
+                    report.set_sleep(sleep_time)
+                    if sleep_time > 10:
+                        logging.info(f"Sleeping for {sleep_time}s")
+                    sleep(sleep_time)
+
+
+                # check if sync to ipfix bucket is necessary (before first packet is sent)
+                should_sync_ipfix = pcap_start_time is None and not (args.nosync | config['no_sync'])
+
+                # return 0 signifies that packet was not discared but program in multithreading
+                sent = clients[ip_src].reproduce(packetwm, should_sync_ipfix=should_sync_ipfix)
+
+                if pcap_start_time is None and sent >= 0:
+                    pcap_start_time = packet.time
+                    real_start_time = time()
+                    report.set_start_time(real_start_time)
 
                 if is_threading:
-                    client_th = Thread(target=client.listen)
-                    client_th.start()
+                    for ip_src in clients:
+                        th = clients[ip_src]['thread']
+                        if not th.is_alive():
+                            raise Exception(f"Thread for {ip_src} is dead!")
 
-                    clients[ip_src] = {
-                        'thread': client_th,
-                        'queue': queue_th,
-                    }
-                else:
-                    clients[ip_src] = client
+            except Exception as e:
+                logging.critical(f"Error! Stopping application on packet [{i}]: {e}")
+                break
 
-            # calculate sleep time (in between packets) and sleep
-            if pcap_start_time is not None:
-                sleep_time = sleep_between_pkts(packet, real_start_time, pcap_start_time, config['time_factor'])
-                report.set_sleep(sleep_time)
-                if sleep_time > 10:
-                    logging.info(f"Sleeping for {sleep_time}s")
-                sleep(sleep_time)
+        report.pause()
+        report.print_stats()
+        sleep(1) # give time to pause
 
+    logging.info("No more pcap files...")
 
-            # check if sync to ipfix bucket is necessary (before first packet is sent)
-            should_sync_ipfix = pcap_start_time is None and not (args.nosync | config['no_sync'])
-
-            # return 0 signifies that packet was not discared but program in multithreading
-            sent = clients[ip_src].reproduce(packetwm, should_sync_ipfix=should_sync_ipfix)
-
-            if pcap_start_time is None and sent >= 0:
-                pcap_start_time = packet.time
-                real_start_time = time()
-                report.set_start_time(real_start_time)
-
-            if is_threading:
-                for ip_src in clients:
-                    th = clients[ip_src]['thread']
-                    if not th.is_alive():
-                        raise Exception(f"Thread for {ip_src} is dead!")
-        except Exception as e:
-            logging.critical(f"Error! Stopping application on packet [{i}]: {e}")
-            break
 
     if not (args.keep_open or config['keep_open']):
-        print('Closing sockets and stopping application...')
+        logging.info('Closing sockets and stopping application...')
         stop_application()
 
 if __name__ == "__main__":

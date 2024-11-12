@@ -1,4 +1,4 @@
-pcap: examples/bgp-traffic.pcap
+pcap: examples/pcaps/bgp-traffic.pcap
 
 time_factor: 1                            # multiplicative factor for speed (2 = twice as slow)
 keep_open: false                          # set to true to not stop application (-> keep sockets open)
@@ -15,14 +15,14 @@ network:
   map:                                    # map a src IP to a new source IP used for repro
   - src_ip:     138.190.129.21
     repro_ip:   192.168.100.1             # needs to be an IP existing IP address bound to an interface on the server
-    
+
   interface: null                         # to use a VRF, give the vrf name
 
 bgp:
-  select: 
+  select:
     tcp:
       dport:
       - 179
   collector:                              # collector that will receive the reproduced messages
-    ip: localhost 
-    port: 179 
+    ip: localhost
+    port: 179

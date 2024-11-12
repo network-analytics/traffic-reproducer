@@ -6,17 +6,18 @@ pcap_processing:
   initial_delay: 5
   inter_packet_delay: 0.001
   inter_protocol_delay: 1
+  desired_tcp_payload_size: 1 # 1 bytes (this means in practice that 1 PDU will be added per packet)
 
 # Protocols with filter selectors
 bmp:
-  select: 
-    ip: 
-      src: 
+  select:
+    ip:
+      src:
       - 192.0.2.55
     tcp:
       dport:
       - 1790
-    bmp_h: 
+    bmp_h:
       type:
       - 0 # ROUTE MONITORING
       - 1 # STATS

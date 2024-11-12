@@ -31,7 +31,7 @@ Network Telemetry Traffic Reproducer: reproduce IPFIX/NetFlow, BGP and BMP Traff
 
 options:
   -h, --help          show this help message and exit
-  -t CFG, --test CFG  YAML configuration file path
+  -t CFG, --cfg CFG   YAML configuration file path
                         --> set IPs and other parameters for reproduction, look at examples folder for some sample configs
   -v, --verbose       Set log level to INFO
                         --> default log level is WARNING, unless -d/--debug flag is used
@@ -44,8 +44,8 @@ options:
                         --> also configurable through the config file [args OR config]
   --keep-open         Keep the TCP connections open when finishing the pcap reproduction
                         --> also configurable through the config file [args OR config]
-
------------------------
+  --ask-for-input     Whether to ask for input before reproducing each pcap file
+                        --> default is reproducing right away all pcap files in the config file one after the other
 ```
 
 ### Recording a pcap file
@@ -80,7 +80,7 @@ The following features are supported:
 
 Example call (-p flag triggers the pre-processing!):
 ```
-python main.py -d -p -t examples/pcap_processing/ipfix-bmp.yml
+python main.py -d -p --cfg examples/pcap_processing/ipfix-bmp.yml
 ```
 
 The output files (pcap, config file, json info file) will be added in a new folder (in this case per default examples/pcap_processing/ipfix-bmp/, but this can also be modified as a config parameter).

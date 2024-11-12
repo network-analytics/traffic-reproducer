@@ -17,6 +17,7 @@ from proto import Proto
 class Report:
     def __init__(self) -> None:
         self.real_start_time = None
+        self.pause_flag = False
 
         # sent messages per proto
         self.supported_protos = [e.value for e in Proto]
@@ -108,7 +109,7 @@ class Report:
     def start(self):
         i = 0
         while not self.stop_signal.wait(0):
-            if i % 4 == 0:
+            if i % 4 == 0 and not self.pause_flag:
                 self.print_stats()
             sleep(0.5)
             i += 1
@@ -116,6 +117,12 @@ class Report:
 
     def stop(self):
         self.stop_signal.set()
+
+    def pause(self):
+        self.pause_flag = True
+
+    def resume(self):
+        self.pause_flag = False
 
     def join(self):
         self._th.join()
