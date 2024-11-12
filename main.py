@@ -34,7 +34,7 @@ def parse_args():
         formatter_class=argparse.RawTextHelpFormatter)
 
     parser.add_argument(
-        "-t", "--test",
+        '-t', '--cfg',
         type=pathlib.Path,
         dest='cfg',
         required=True,
