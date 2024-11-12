@@ -1,7 +1,12 @@
-# Pcap Processing Examples:
+# Pcap Processing
 
+### Examples:
+```
 python main.py -d -p -t examples/pcap_processing/ipfix-bmp.yml
+python main.py -d -p -t examples/pcap_processing/ipfix-multi-sources.yml
+```
 
-or 
-
+### If root necessary (e.g. need to send through vrf interface):
+```
 sudo env PATH="$PATH" python main.py -d -p -t examples/pcap_processing/ipfix-bmp.yml
+```
