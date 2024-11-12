@@ -6,7 +6,7 @@ pcap_processing:
   initial_delay: 5
   inter_packet_delay: 0.001
   inter_protocol_delay: 1
-  desired_tcp_payload_size: 1 # this means 1 PDU per packet max
+  desired_tcp_payload_size: 1 # 1 bytes (this means in practice that 1 PDU will be added per packet)
 
 # Protocols with filter selectors
 bmp:

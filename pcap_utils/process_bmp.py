@@ -316,7 +316,7 @@ class BMPProcessing(ProtoProcessing):
     def process_packets(self, initial_delay=5, inter_packet_delay=0.001, tcp_payload_size=1424):
 
         # Get some info for self.info struct
-        self.bmp_session_info()
+        # self.bmp_session_info()
 
         # Reconstruct TCP segments s.t. MTU~=1500 (<1500)
         self.tcp_build_wrapper_BMP(tcp_payload_size)
