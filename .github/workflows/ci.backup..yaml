@@ -1,0 +1,81 @@
+name: Basic Checks
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 0 * * *'  # every day at midnight
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Set up loopback interfaces
+        run: |
+          sudo ifconfig lo:1 192.168.100.1 up
+          sudo ifconfig lo:2 192.168.100.2 up
+
+      - name: Start Listener
+        run: |
+          touch nc_output.txt
+          (nc -u -l -k 9991 | hexdump -C > nc_output.txt & echo $! > listener_pid.txt) &
+          echo "$!" > listener_pid.txt
+          sleep 5s
+          echo "Listener PID:"
+          cat listener_pid.txt
+          echo "Listener Output:"
+          cat nc_output.txt
+
+      - name: Debug IP Configuration
+        run: |
+          ip a
+          
+      - name: Run main.py
+        run: |
+          sudo env PATH="$PATH" python main.py -v -t examples/ipfix-traffic.yml
+
+      - name: Stop Listener
+        run: |
+          pid=$(cat listener_pid.txt)
+          sudo kill -SIGINT $pid
+          sleep 5s
+          echo "Listener Output:"
+          cat nc_output.txt
+
+      - name: Preprocess Hexdump Output
+        run: |
+          awk '{print substr($0, 11, 47)}' nc_output.txt | tr -d ' \n' > nc_output_cleaned.txt
+          echo "Listener Output Cleaned:"
+          cat nc_output_cleaned.txt
+
+      - name: Count Packets
+        run: |
+          packet_count=$(grep -o '000a' nc_output_cleaned.txt | wc -l)
+          echo $packet_count > packet_count.txt
+
+      - name: Check Packet Count
+        run: |
+          packet_count=$(cat packet_count.txt)
+          echo "Packet Count: $packet_count"
+          if [ "$packet_count" -eq 6 ]; then
+            echo "Success: 6 packets received."
+          else
+            echo "Error: Expected 6 packets but found $packet_count."
+            exit 1
+          fi

@@ -16,3 +16,9 @@ RUN pip install -r requirements.txt
 # Set the entry point command
 # CMD ["python", "./main.py", "--cfg", "/pcap/traffic-reproducer.conf"]
 CMD ["python", "./main.py", "-h"]
+
+# Make script to add multiple IP addresses executable
+RUN chmod +x ./docker/add_interfaces.sh
+
+# Set the entry point command
+ENTRYPOINT ["./docker/add_interfaces.sh", "python", "./main.py", "-h"]

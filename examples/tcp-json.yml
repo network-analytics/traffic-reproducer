@@ -29,5 +29,5 @@ tcp_generic:
       dport:
       - 10005
   collector:
-    ip: cafe::100
+    ip: cafe::200
     port: 10005

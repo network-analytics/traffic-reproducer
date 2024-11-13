@@ -38,10 +38,16 @@ jobs:
 
 # TODO idea: send all messages from all examples and then do some basic check on collector logs / print files (no warnings, no error, line counts, etc...)
 
-  regression-tests:
+  example-tests:
     runs-on: ubuntu-latest
     needs: docker-build
     steps:
+      - name: Checkout traffic-reproducer
+        uses: actions/checkout@v4
+        with:
+          path: traffic-reproducer
+          submodules: recursive
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -49,11 +55,22 @@ jobs:
           path: /tmp/docker
 
       - name: Import images in the local registry
+        shell: bash
         run: |
           docker load -i /tmp/docker/traffic_reproducer_docker_images/traffic_reproducer_docker_images.tar
           echo "List Images"
           docker images | grep 'traffic-reproducer'
 
       - name: Run traffic-reproducer container
+        shell: bash
         run: |
-          docker run --rm --name traffic-reproducer traffic-reproducer:latest
+          docker network create --subnet=192.168.100.0/24 --subnet=cafe::/64 --ipv6 test_network
+          cd traffic-reproducer/ci/collectors
+          docker compose up -d
+          sleep 10
+          cd ../reproducers
+          export ADDITIONAL_IPV4_LIST="192.168.100.2/24 192.168.100.3/24"
+          export ADDITIONAL_IPV6_LIST="cafe::2/64 cafe::3/64 cafe::4/64 cafe::5/64 cafe::6/64 cafe::7/64"
+          docker compose up
+          cd ../collectors
+          cat tmp/logs/*.log

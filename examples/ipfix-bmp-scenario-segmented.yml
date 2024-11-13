@@ -33,7 +33,7 @@ bmp:
       dport:
       - 1790
   collector:                              # collector that will receive the reproduced messages
-    ip: localhost
+    ip: cafe::102
     port: 1791
 
 ipfix:
@@ -42,5 +42,5 @@ ipfix:
       dport:
       - 9991
   collector:
-    ip: localhost
+    ip: cafe::102
     port: 9992

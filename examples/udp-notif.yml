@@ -29,5 +29,5 @@ udp_generic:
       dport:
       - 10003
   collector:
-    ip: 192.168.100.100
+    ip: 192.168.100.201
     port: 10003

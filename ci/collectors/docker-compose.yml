@@ -1,0 +1,62 @@
+---
+version: '3'
+
+networks:
+  test_network:
+    external: true
+
+services:
+  nfacctd:
+    image: pmacct/nfacctd:v1.7.9
+    container_name: nfacctd
+    volumes:
+      - ./nfacctd.conf:/etc/pmacct/nfacctd.conf
+      - ./tmp/logs:/var/log/pmacct
+    networks:
+      test_network:
+        ipv4_address: 192.168.100.100
+        ipv6_address: cafe::100
+
+  nfacctd-bgp:
+    image: pmacct/nfacctd:v1.7.9
+    container_name: nfacctd-bgp
+    volumes:
+      - ./nfacctd-bgp.conf:/etc/pmacct/nfacctd.conf
+      - ./tmp/logs:/var/log/pmacct
+    networks:
+      test_network:
+        ipv4_address: 192.168.100.101
+        ipv6_address: cafe::101
+
+  nfacctd-bmp:
+    image: pmacct/nfacctd:v1.7.9
+    container_name: nfacctd-bmp
+    volumes:
+      - ./nfacctd-bmp.conf:/etc/pmacct/nfacctd.conf
+      - ./tmp/logs:/var/log/pmacct
+    networks:
+      test_network:
+        ipv4_address: 192.168.100.102
+        ipv6_address: cafe::102
+
+  pmtelemetryd-tcp-json:
+    image: pmacct/pmtelemetryd:v1.7.9
+    container_name: pmtelemetryd-tcp-json
+    volumes:
+      - ./pmtelemetryd-tcp-json.conf:/etc/pmacct/pmtelemetryd.conf
+      - ./tmp/logs:/var/log/pmacct
+    networks:
+      test_network:
+        ipv4_address: 192.168.100.200
+        ipv6_address: cafe::200
+
+  pmtelemetryd-udp-notif:
+    image: pmacct/pmtelemetryd:v1.7.9
+    container_name: pmtelemetryd-udp-notif
+    volumes:
+      - ./pmtelemetryd-udp-notif.conf:/etc/pmacct/pmtelemetryd.conf
+      - ./tmp/logs:/var/log/pmacct
+    networks:
+      test_network:
+        ipv4_address: 192.168.100.201
+        ipv6_address: cafe::201
