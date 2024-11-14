@@ -333,6 +333,7 @@ def main():
                         clients[ip_src] = {
                             'thread': client_th,
                             'queue': queue_th,
+                            'client': client
                         }
                     else:
                         clients[ip_src] = client
@@ -350,7 +351,11 @@ def main():
                 should_sync_ipfix = pcap_start_time is None and not (args.nosync | config['no_sync'])
 
                 # return 0 signifies that packet was not discared but program in multithreading
-                sent = clients[ip_src].reproduce(packetwm, should_sync_ipfix=should_sync_ipfix)
+                if is_threading:
+                    sent = clients[ip_src]['client'].reproduce(packetwm, should_sync_ipfix=should_sync_ipfix)
+                else:
+                    sent = clients[ip_src].reproduce(packetwm, should_sync_ipfix=should_sync_ipfix)
+
 
                 if pcap_start_time is None and sent >= 0:
                     pcap_start_time = packet.time

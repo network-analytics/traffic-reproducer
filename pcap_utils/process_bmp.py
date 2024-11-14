@@ -280,6 +280,7 @@ class BMPProcessing(ProtoProcessing):
                                                       tcp_payload_size)
                 tcp_packets += tmp_tcp_packets
 
+        # TODO: need to adjust this function if we want to support JUMBO frames in the desired_tcp_payload_size argument for pre-processing
         tcp_packets = tcp_fragment(PacketList(tcp_packets), self.selectors['tcp']['dport'])
 
         self.packets = PacketList(tcp_packets)
