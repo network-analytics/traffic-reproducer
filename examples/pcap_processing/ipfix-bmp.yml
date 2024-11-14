@@ -6,7 +6,8 @@ pcap_processing:
   initial_delay: 5
   inter_packet_delay: 0.001
   inter_protocol_delay: 1
-  desired_tcp_payload_size: 1 # this means 1 PDU per packet max
+  desired_tcp_payload_size: 500        # [default 1424bytes] best effort desired size (we don't fragment BMP/BGP messages to meet this requirement!)
+                                       #                     (i.e. when we have single bmp/bgp messages that are longer than desired size)
 
 # Protocols with filter selectors
 bmp:
