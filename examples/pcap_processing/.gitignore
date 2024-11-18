@@ -1,7 +1,8 @@
+bgp-multi-source
 bgp
 bmp-multi-source
 bmp
 ipfix-bgp
 ipfix-bmp
-ipfix-multi-sources-capture
+ipfix-multi-sources
 ipfix-vmware
