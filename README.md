@@ -14,11 +14,18 @@ Given a PCAP and a configuration file, this scapy-based tool can reproduce traff
 
 ## Installation
 
-You need to run the software with Python 3.7 or newer. We suggest to create a virtual environment and use the `requirements.txt` file to install the correct packages
+You need to run the software with Python 3.7 or newer.
+
+First make sure you have all the submodules pulled:
+```
+git submodule update --init
+```
+
+Then create the virtual environment and use the `requirements.txt` file to install the dependencies.
 ```
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requiremements.txt
+pip install -r requirements.txt
 ```
 
 ## Usage
