@@ -54,7 +54,7 @@ class BMPProcessing(ProtoProcessing):
         self.bmp_sessions = []
 
         # Extract and cleanup BMP sessions from self.packets
-        self.__bmp_sessions_cleanup()
+        #self.__bmp_sessions_cleanup()
         self.__bmp_sessions_defragment()
 
         # Some more filtering on BMP layers
